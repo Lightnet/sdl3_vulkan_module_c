@@ -1,6 +1,8 @@
 // 
 
 #include "vulkan_module.h"
+#include "triangle_vert.h" // Include vertex shader array
+#include "triangle_frag.h" // Include fragment shader array
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -215,34 +217,11 @@ void init_vulkan(SDL_Window* window, uint32_t width, uint32_t height) {
     }
 }
 
+
 void create_pipeline(void) {
-    FILE* vertFile = fopen("vert.spv", "rb");
-    if (!vertFile) {
-        printf("Failed to open vert.spv\n");
-        exit(1);
-    }
-    fseek(vertFile, 0, SEEK_END);
-    long vertSize = ftell(vertFile);
-    fseek(vertFile, 0, SEEK_SET);
-    char* vertShaderCode = malloc(vertSize);
-    fread(vertShaderCode, 1, vertSize, vertFile);
-    fclose(vertFile);
-
-    FILE* fragFile = fopen("frag.spv", "rb");
-    if (!fragFile) {
-        printf("Failed to open frag.spv\n");
-        exit(1);
-    }
-    fseek(fragFile, 0, SEEK_END);
-    long fragSize = ftell(fragFile);
-    fseek(fragFile, 0, SEEK_SET);
-    char* fragShaderCode = malloc(fragSize);
-    fread(fragShaderCode, 1, fragSize, fragFile);
-    fclose(fragFile);
-
     VkShaderModuleCreateInfo vertShaderInfo = {VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO};
-    vertShaderInfo.codeSize = vertSize;
-    vertShaderInfo.pCode = (uint32_t*)vertShaderCode;
+    vertShaderInfo.codeSize = sizeof(triangle_vert_spv);
+    vertShaderInfo.pCode = triangle_vert_spv;
     VkShaderModule vertModule;
     if (vkCreateShaderModule(vkCtx.device, &vertShaderInfo, NULL, &vertModule) != VK_SUCCESS) {
         printf("Failed to create vertex shader module\n");
@@ -250,8 +229,8 @@ void create_pipeline(void) {
     }
 
     VkShaderModuleCreateInfo fragShaderInfo = {VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO};
-    fragShaderInfo.codeSize = fragSize;
-    fragShaderInfo.pCode = (uint32_t*)fragShaderCode;
+    fragShaderInfo.codeSize = sizeof(triangle_frag_spv);
+    fragShaderInfo.pCode = triangle_frag_spv;
     VkShaderModule fragModule;
     if (vkCreateShaderModule(vkCtx.device, &fragShaderInfo, NULL, &fragModule) != VK_SUCCESS) {
         printf("Failed to create fragment shader module\n");
@@ -327,9 +306,8 @@ void create_pipeline(void) {
 
     vkDestroyShaderModule(vkCtx.device, fragModule, NULL);
     vkDestroyShaderModule(vkCtx.device, vertModule, NULL);
-    free(vertShaderCode);
-    free(fragShaderCode);
 }
+
 
 void record_command_buffer(uint32_t imageIndex) {
     VkCommandBufferBeginInfo beginInfo = {VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO};
