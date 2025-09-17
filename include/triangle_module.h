@@ -6,3 +6,5 @@
 void create_triangle(void);
 // Render the triangle
 void render_triangle(VkCommandBuffer commandBuffer);
+void create_quad(void);        // Create quad vertex buffer
+void render_quad(VkCommandBuffer commandBuffer); // Render quad

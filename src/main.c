@@ -24,8 +24,9 @@ int main(int argc, char* argv[]) {
     }
 
     VulkanContext* vkCtx = get_vulkan_context();
-    init_vulkan(window);
+    init_vulkan(window, WIDTH, HEIGHT); // Pass width and height
     create_triangle();
+    create_quad(); // Create quad
     create_pipeline();
     init_imgui(window);
 
@@ -62,12 +63,7 @@ int main(int argc, char* argv[]) {
         }
 
         vkResetCommandBuffer(vkCtx->commandBuffer, 0);
-        record_command_buffer(imageIndex);
-
-        render_imgui(imageIndex); // Call new rendering function
-
-        // printf("Test\n");
-
+        render_imgui(imageIndex);
     }
 
     vkDeviceWaitIdle(vkCtx->device);

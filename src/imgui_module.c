@@ -81,6 +81,10 @@ void cleanup_imgui(void) {
     vkDestroyDescriptorPool(vkCtx->device, vkCtx->imguiDescriptorPool, NULL);
 }
 
+
+
+
+
 void render_imgui(uint32_t imageIndex) {
     VulkanContext* vkCtx = get_vulkan_context();
 
@@ -90,14 +94,15 @@ void render_imgui(uint32_t imageIndex) {
     renderPassInfo.renderPass = vkCtx->renderPass;
     renderPassInfo.framebuffer = vkCtx->swapchainFramebuffers[imageIndex];
     renderPassInfo.renderArea.offset = (VkOffset2D){0, 0};
-    renderPassInfo.renderArea.extent = (VkExtent2D){800, 600};
+    renderPassInfo.renderArea.extent = (VkExtent2D){vkCtx->width, vkCtx->height};
     VkClearValue clearColor = {{{0.5f, 0.5f, 0.5f, 1.0f}}};
     renderPassInfo.clearValueCount = 1;
     renderPassInfo.pClearValues = &clearColor;
     vkCmdBeginRenderPass(vkCtx->commandBuffer, &renderPassInfo, VK_SUBPASS_CONTENTS_INLINE);
 
-    // Render triangle
+    // Render triangle and quad
     render_triangle(vkCtx->commandBuffer);
+    render_quad(vkCtx->commandBuffer);
 
     // Render ImGui
     ImGui_ImplVulkan_RenderDrawData(igGetDrawData(), vkCtx->commandBuffer, VK_NULL_HANDLE);

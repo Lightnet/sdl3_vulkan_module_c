@@ -16,8 +16,12 @@ typedef struct {
     VkPipeline graphicsPipeline;
     VkCommandPool commandPool;
     VkCommandBuffer commandBuffer;
-    VkBuffer vertexBuffer;
+    VkBuffer vertexBuffer;     // For triangle
     VkDeviceMemory vertexMemory;
+    VkBuffer quadBuffer;       // For quad vertices
+    VkDeviceMemory quadMemory;
+    VkBuffer quadIndexBuffer;  // For quad indices
+    VkDeviceMemory quadIndexMemory;
     VkSemaphore imageAvailableSemaphore;
     VkSemaphore renderFinishedSemaphore;
     VkFence inFlightFence;
@@ -26,10 +30,12 @@ typedef struct {
     VkImageView* swapchainImageViews;
     VkFramebuffer* swapchainFramebuffers;
     VkDescriptorPool imguiDescriptorPool;
+    uint32_t width;
+    uint32_t height;
 } VulkanContext;
 
 VulkanContext* get_vulkan_context(void);
-void init_vulkan(SDL_Window* window);
+void init_vulkan(SDL_Window* window, uint32_t width, uint32_t height);
 void create_pipeline(void);
 void record_command_buffer(uint32_t imageIndex);
 void cleanup_vulkan(void);

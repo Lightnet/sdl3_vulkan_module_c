@@ -29,7 +29,10 @@ VulkanContext* get_vulkan_context(void) {
     return &vkCtx;
 }
 
-void init_vulkan(SDL_Window* window) {
+void init_vulkan(SDL_Window* window, uint32_t width, uint32_t height) {
+    vkCtx.width = width;   // Set width
+    vkCtx.height = height; // Set height
+
     VkApplicationInfo appInfo = {VK_STRUCTURE_TYPE_APPLICATION_INFO};
     appInfo.pApplicationName = "Vulkan SDL3";
     appInfo.applicationVersion = VK_MAKE_VERSION(1, 0, 0);
@@ -100,8 +103,8 @@ void init_vulkan(SDL_Window* window) {
     swapchainInfo.minImageCount = 2;
     swapchainInfo.imageFormat = VK_FORMAT_B8G8R8A8_UNORM;
     swapchainInfo.imageColorSpace = VK_COLOR_SPACE_SRGB_NONLINEAR_KHR;
-    swapchainInfo.imageExtent.width = WIDTH;
-    swapchainInfo.imageExtent.height = HEIGHT;
+    swapchainInfo.imageExtent.width = vkCtx.width;
+    swapchainInfo.imageExtent.height = vkCtx.height;
     swapchainInfo.imageArrayLayers = 1;
     swapchainInfo.imageUsage = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT;
     swapchainInfo.preTransform = VK_SURFACE_TRANSFORM_IDENTITY_BIT_KHR;
@@ -172,8 +175,8 @@ void init_vulkan(SDL_Window* window) {
         framebufferInfo.renderPass = vkCtx.renderPass;
         framebufferInfo.attachmentCount = 1;
         framebufferInfo.pAttachments = &vkCtx.swapchainImageViews[i];
-        framebufferInfo.width = WIDTH;
-        framebufferInfo.height = HEIGHT;
+        framebufferInfo.width = vkCtx.width;
+        framebufferInfo.height = vkCtx.height;
         framebufferInfo.layers = 1;
 
         if (vkCreateFramebuffer(vkCtx.device, &framebufferInfo, NULL, &vkCtx.swapchainFramebuffers[i]) != VK_SUCCESS) {
@@ -262,8 +265,8 @@ void create_pipeline(void) {
 
     VkVertexInputBindingDescription bindingDesc = {0, 6 * sizeof(float), VK_VERTEX_INPUT_RATE_VERTEX};
     VkVertexInputAttributeDescription attrDesc[] = {
-        {0, 0, VK_FORMAT_R32G32B32_SFLOAT, 0},                // Position
-        {1, 0, VK_FORMAT_R32G32B32_SFLOAT, 3 * sizeof(float)} // Color
+        {0, 0, VK_FORMAT_R32G32B32_SFLOAT, 0},
+        {1, 0, VK_FORMAT_R32G32B32_SFLOAT, 3 * sizeof(float)}
     };
 
     VkPipelineVertexInputStateCreateInfo vertexInputInfo = {VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO};
@@ -275,8 +278,8 @@ void create_pipeline(void) {
     VkPipelineInputAssemblyStateCreateInfo inputAssembly = {VK_STRUCTURE_TYPE_PIPELINE_INPUT_ASSEMBLY_STATE_CREATE_INFO};
     inputAssembly.topology = VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST;
 
-    VkViewport viewport = {0.0f, 0.0f, (float)WIDTH, (float)HEIGHT, 0.0f, 1.0f};
-    VkRect2D scissor = {{0, 0}, {WIDTH, HEIGHT}};
+    VkViewport viewport = {0.0f, 0.0f, (float)vkCtx.width, (float)vkCtx.height, 0.0f, 1.0f};
+    VkRect2D scissor = {{0, 0}, {vkCtx.width, vkCtx.height}};
     VkPipelineViewportStateCreateInfo viewportState = {VK_STRUCTURE_TYPE_PIPELINE_VIEWPORT_STATE_CREATE_INFO};
     viewportState.viewportCount = 1;
     viewportState.pViewports = &viewport;
@@ -339,14 +342,12 @@ void record_command_buffer(uint32_t imageIndex) {
     renderPassInfo.renderPass = vkCtx.renderPass;
     renderPassInfo.framebuffer = vkCtx.swapchainFramebuffers[imageIndex];
     renderPassInfo.renderArea.offset = (VkOffset2D){0, 0};
-    renderPassInfo.renderArea.extent = (VkExtent2D){WIDTH, HEIGHT};
+    renderPassInfo.renderArea.extent = (VkExtent2D){vkCtx.width, vkCtx.height};
     VkClearValue clearColor = {{{0.5f, 0.5f, 0.5f, 1.0f}}};
     renderPassInfo.clearValueCount = 1;
     renderPassInfo.pClearValues = &clearColor;
 
     vkCmdBeginRenderPass(vkCtx.commandBuffer, &renderPassInfo, VK_SUBPASS_CONTENTS_INLINE);
-
-    // Note: Triangle and ImGui rendering are handled in imgui_module.c
 }
 
 
@@ -370,7 +371,13 @@ void cleanup_vulkan(void) {
     vkDestroySwapchainKHR(vkCtx.device, vkCtx.swapchain, NULL);
     vkDestroyBuffer(vkCtx.device, vkCtx.vertexBuffer, NULL);
     vkFreeMemory(vkCtx.device, vkCtx.vertexMemory, NULL);
+    vkDestroyBuffer(vkCtx.device, vkCtx.quadBuffer, NULL);
+    vkFreeMemory(vkCtx.device, vkCtx.quadMemory, NULL);
+    vkDestroyBuffer(vkCtx.device, vkCtx.quadIndexBuffer, NULL); // Destroy quad index buffer
+    vkFreeMemory(vkCtx.device, vkCtx.quadIndexMemory, NULL);   // Free quad index memory
     vkDestroyDevice(vkCtx.device, NULL);
     vkDestroySurfaceKHR(vkCtx.instance, vkCtx.surface, NULL);
     vkDestroyInstance(vkCtx.instance, NULL);
 }
+
+
