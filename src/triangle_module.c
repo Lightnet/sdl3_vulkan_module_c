@@ -4,19 +4,6 @@
 #include <string.h>
 #include <vulkan/vulkan.h>
 
-static uint32_t find_memory_type(VulkanContext* ctx, uint32_t typeFilter, VkMemoryPropertyFlags properties) {
-    VkPhysicalDeviceMemoryProperties memProperties;
-    vkGetPhysicalDeviceMemoryProperties(ctx->physicalDevice, &memProperties);
-
-    for (uint32_t i = 0; i < memProperties.memoryTypeCount; i++) {
-        if ((typeFilter & (1 << i)) && (memProperties.memoryTypes[i].propertyFlags & properties) == properties) {
-            return i;
-        }
-    }
-    printf("Failed to find suitable memory type!\n");
-    exit(1);
-}
-
 void create_triangle(void) {
     VulkanContext* vkCtx = get_vulkan_context();
 
@@ -54,4 +41,12 @@ void create_triangle(void) {
     vkMapMemory(vkCtx->device, vkCtx->vertexMemory, 0, bufferInfo.size, 0, &data);
     memcpy(data, vertices, sizeof(vertices));
     vkUnmapMemory(vkCtx->device, vkCtx->vertexMemory);
+}
+
+void render_triangle(VkCommandBuffer commandBuffer) {
+    VulkanContext* vkCtx = get_vulkan_context();
+    vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, vkCtx->graphicsPipeline);
+    VkDeviceSize offsets[] = {0};
+    vkCmdBindVertexBuffers(commandBuffer, 0, 1, &vkCtx->vertexBuffer, offsets);
+    vkCmdDraw(commandBuffer, 3, 1, 0, 0);
 }

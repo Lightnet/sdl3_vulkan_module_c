@@ -11,6 +11,19 @@
 // Global Vulkan context
 static VulkanContext vkCtx = {0};
 
+uint32_t find_memory_type(VulkanContext* ctx, uint32_t typeFilter, VkMemoryPropertyFlags properties) {
+    VkPhysicalDeviceMemoryProperties memProperties;
+    vkGetPhysicalDeviceMemoryProperties(ctx->physicalDevice, &memProperties);
+
+    for (uint32_t i = 0; i < memProperties.memoryTypeCount; i++) {
+        if ((typeFilter & (1 << i)) && (memProperties.memoryTypes[i].propertyFlags & properties) == properties) {
+            return i;
+        }
+    }
+    printf("Failed to find suitable memory type!\n");
+    exit(1);
+}
+
 // Accessor function
 VulkanContext* get_vulkan_context(void) {
     return &vkCtx;
@@ -327,25 +340,16 @@ void record_command_buffer(uint32_t imageIndex) {
     renderPassInfo.framebuffer = vkCtx.swapchainFramebuffers[imageIndex];
     renderPassInfo.renderArea.offset = (VkOffset2D){0, 0};
     renderPassInfo.renderArea.extent = (VkExtent2D){WIDTH, HEIGHT};
-    VkClearValue clearColor = {{{0.5f, 0.5f, 0.5f, 1.0f}}}; // Gray background
+    VkClearValue clearColor = {{{0.5f, 0.5f, 0.5f, 1.0f}}};
     renderPassInfo.clearValueCount = 1;
     renderPassInfo.pClearValues = &clearColor;
 
     vkCmdBeginRenderPass(vkCtx.commandBuffer, &renderPassInfo, VK_SUBPASS_CONTENTS_INLINE);
 
-    // Draw triangle
-    vkCmdBindPipeline(vkCtx.commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, vkCtx.graphicsPipeline);
-    VkDeviceSize offsets[] = {0};
-    vkCmdBindVertexBuffers(vkCtx.commandBuffer, 0, 1, &vkCtx.vertexBuffer, offsets);
-    vkCmdDraw(vkCtx.commandBuffer, 3, 1, 0, 0);
-
-    // Note: ImGui rendering is handled in main.c to allow flexibility
-    vkCmdEndRenderPass(vkCtx.commandBuffer);
-    if (vkEndCommandBuffer(vkCtx.commandBuffer) != VK_SUCCESS) {
-        printf("Failed to end command buffer\n");
-        exit(1);
-    }
+    // Note: Triangle and ImGui rendering are handled in imgui_module.c
 }
+
+
 
 void cleanup_vulkan(void) {
     vkDeviceWaitIdle(vkCtx.device);

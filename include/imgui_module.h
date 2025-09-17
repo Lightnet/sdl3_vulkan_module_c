@@ -5,3 +5,4 @@
 
 void init_imgui(SDL_Window* window);
 void cleanup_imgui(void);
+void render_imgui(uint32_t imageIndex); // for rendering

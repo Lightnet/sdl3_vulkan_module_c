@@ -1,6 +1,7 @@
 #include "imgui_module.h"
 #include "cimgui.h"
 #include "cimgui_impl.h"
+#include "triangle_module.h"
 #include <stdio.h>
 #include <vulkan/vulkan.h>
 
@@ -9,13 +10,11 @@
 void init_imgui(SDL_Window* window) {
     VulkanContext* vkCtx = get_vulkan_context();
 
-    // Initialize cimgui
     igCreateContext(NULL);
     ImGuiIO* io = igGetIO();
-    io->ConfigFlags |= ImGuiConfigFlags_NavEnableKeyboard; // Enable keyboard controls
-    io->ConfigFlags |= ImGuiConfigFlags_DockingEnable;     // Enable docking
+    io->ConfigFlags |= ImGuiConfigFlags_NavEnableKeyboard;
+    io->ConfigFlags |= ImGuiConfigFlags_DockingEnable;
 
-    // Create descriptor pool for ImGui
     VkDescriptorPoolSize pool_sizes[] = {
         { VK_DESCRIPTOR_TYPE_SAMPLER, 1000 },
         { VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1000 },
@@ -39,12 +38,11 @@ void init_imgui(SDL_Window* window) {
         exit(1);
     }
 
-    // Initialize ImGui Vulkan backend
     ImGui_ImplVulkan_InitInfo init_info = {0};
     init_info.Instance = vkCtx->instance;
     init_info.PhysicalDevice = vkCtx->physicalDevice;
     init_info.Device = vkCtx->device;
-    init_info.QueueFamily = 0; // Update this if your graphics queue family is different
+    init_info.QueueFamily = 0;
     init_info.Queue = vkCtx->graphicsQueue;
     init_info.DescriptorPool = vkCtx->imguiDescriptorPool;
     init_info.MinImageCount = 2;
@@ -57,13 +55,11 @@ void init_imgui(SDL_Window* window) {
         exit(1);
     }
 
-    // Initialize ImGui SDL3 backend
     if (!ImGui_ImplSDL3_InitForVulkan(window)) {
         printf("Failed to initialize ImGui SDL3 backend\n");
         exit(1);
     }
 
-    // Upload fonts
     VkCommandBuffer commandBuffer = vkCtx->commandBuffer;
     VkCommandBufferBeginInfo beginInfo = {VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO};
     beginInfo.flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT;
@@ -83,4 +79,58 @@ void cleanup_imgui(void) {
     ImGui_ImplSDL3_Shutdown();
     igDestroyContext(NULL);
     vkDestroyDescriptorPool(vkCtx->device, vkCtx->imguiDescriptorPool, NULL);
+}
+
+void render_imgui(uint32_t imageIndex) {
+    VulkanContext* vkCtx = get_vulkan_context();
+
+    VkCommandBufferBeginInfo beginInfo = {VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO};
+    vkBeginCommandBuffer(vkCtx->commandBuffer, &beginInfo);
+    VkRenderPassBeginInfo renderPassInfo = {VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO};
+    renderPassInfo.renderPass = vkCtx->renderPass;
+    renderPassInfo.framebuffer = vkCtx->swapchainFramebuffers[imageIndex];
+    renderPassInfo.renderArea.offset = (VkOffset2D){0, 0};
+    renderPassInfo.renderArea.extent = (VkExtent2D){800, 600};
+    VkClearValue clearColor = {{{0.5f, 0.5f, 0.5f, 1.0f}}};
+    renderPassInfo.clearValueCount = 1;
+    renderPassInfo.pClearValues = &clearColor;
+    vkCmdBeginRenderPass(vkCtx->commandBuffer, &renderPassInfo, VK_SUBPASS_CONTENTS_INLINE);
+
+    // Render triangle
+    render_triangle(vkCtx->commandBuffer);
+
+    // Render ImGui
+    ImGui_ImplVulkan_RenderDrawData(igGetDrawData(), vkCtx->commandBuffer, VK_NULL_HANDLE);
+
+    vkCmdEndRenderPass(vkCtx->commandBuffer);
+    vkEndCommandBuffer(vkCtx->commandBuffer);
+
+    VkSubmitInfo submitInfo = {VK_STRUCTURE_TYPE_SUBMIT_INFO};
+    VkSemaphore waitSemaphores[] = {vkCtx->imageAvailableSemaphore};
+    VkPipelineStageFlags waitStages[] = {VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT};
+    submitInfo.waitSemaphoreCount = 1;
+    submitInfo.pWaitSemaphores = waitSemaphores;
+    submitInfo.pWaitDstStageMask = waitStages;
+    submitInfo.commandBufferCount = 1;
+    submitInfo.pCommandBuffers = &vkCtx->commandBuffer;
+    VkSemaphore signalSemaphores[] = {vkCtx->renderFinishedSemaphore};
+    submitInfo.signalSemaphoreCount = 1;
+    submitInfo.pSignalSemaphores = signalSemaphores;
+
+    if (vkQueueSubmit(vkCtx->graphicsQueue, 1, &submitInfo, vkCtx->inFlightFence) != VK_SUCCESS) {
+        printf("Failed to submit draw command buffer\n");
+        exit(1);
+    }
+
+    VkPresentInfoKHR presentInfo = {VK_STRUCTURE_TYPE_PRESENT_INFO_KHR};
+    presentInfo.waitSemaphoreCount = 1;
+    presentInfo.pWaitSemaphores = signalSemaphores;
+    presentInfo.swapchainCount = 1;
+    presentInfo.pSwapchains = &vkCtx->swapchain;
+    presentInfo.pImageIndices = &imageIndex;
+
+    if (vkQueuePresentKHR(vkCtx->graphicsQueue, &presentInfo) != VK_SUCCESS) {
+        printf("Failed to present image\n");
+        exit(1);
+    }
 }

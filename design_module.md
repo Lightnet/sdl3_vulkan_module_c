@@ -22,3 +22,17 @@ void custom_ui(void) {
     igEnd();
 }
 ```
+
+```
+#include "triangle_module.h"
+
+void create_quad(void) {
+    VulkanContext* vkCtx = get_vulkan_context();
+    // Define and upload quad vertex data
+}
+
+void render_quad(VkCommandBuffer commandBuffer) {
+    VulkanContext* vkCtx = get_vulkan_context();
+    // Bind pipeline and vertex buffer, issue draw call
+}
+```

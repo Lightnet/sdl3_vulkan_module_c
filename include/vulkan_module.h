@@ -25,14 +25,12 @@ typedef struct {
     VkImage* swapchainImages;
     VkImageView* swapchainImageViews;
     VkFramebuffer* swapchainFramebuffers;
-    VkDescriptorPool imguiDescriptorPool; // For ImGui
+    VkDescriptorPool imguiDescriptorPool;
 } VulkanContext;
 
-// Accessor for the global Vulkan context
 VulkanContext* get_vulkan_context(void);
-
-// Vulkan module functions
 void init_vulkan(SDL_Window* window);
 void create_pipeline(void);
 void record_command_buffer(uint32_t imageIndex);
 void cleanup_vulkan(void);
+uint32_t find_memory_type(VulkanContext* ctx, uint32_t typeFilter, VkMemoryPropertyFlags properties);
