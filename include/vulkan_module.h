@@ -1,0 +1,38 @@
+#pragma once
+
+#include <vulkan/vulkan.h>
+#include <SDL3/SDL.h>
+#include <SDL3/SDL_vulkan.h>
+
+typedef struct {
+    VkInstance instance;
+    VkPhysicalDevice physicalDevice;
+    VkDevice device;
+    VkQueue graphicsQueue;
+    VkSurfaceKHR surface;
+    VkSwapchainKHR swapchain;
+    VkRenderPass renderPass;
+    VkPipelineLayout pipelineLayout;
+    VkPipeline graphicsPipeline;
+    VkCommandPool commandPool;
+    VkCommandBuffer commandBuffer;
+    VkBuffer vertexBuffer;
+    VkDeviceMemory vertexMemory;
+    VkSemaphore imageAvailableSemaphore;
+    VkSemaphore renderFinishedSemaphore;
+    VkFence inFlightFence;
+    uint32_t imageCount;
+    VkImage* swapchainImages;
+    VkImageView* swapchainImageViews;
+    VkFramebuffer* swapchainFramebuffers;
+    VkDescriptorPool imguiDescriptorPool; // For ImGui
+} VulkanContext;
+
+// Accessor for the global Vulkan context
+VulkanContext* get_vulkan_context(void);
+
+// Vulkan module functions
+void init_vulkan(SDL_Window* window);
+void create_pipeline(void);
+void record_command_buffer(uint32_t imageIndex);
+void cleanup_vulkan(void);
