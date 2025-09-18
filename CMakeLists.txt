@@ -63,6 +63,17 @@ FetchContent_Declare(
 )
 FetchContent_MakeAvailable(cimgui)
 
+FetchContent_Declare(
+    stb
+    GIT_REPOSITORY https://github.com/nothings/stb.git
+    GIT_TAG        master
+    EXCLUDE_FROM_ALL #this disable build?
+    GIT_SHALLOW TRUE
+    USES_TERMINAL_DOWNLOAD TRUE
+)
+FetchContent_MakeAvailable(stb)
+
+
 #================================================
 # cimgui custom
 #================================================
@@ -135,7 +146,8 @@ ${SRC_FILES}
     # src/main.c
     # examples/sdl3_vulkan_triangle_imgui_spv.c
     # examples/sdl3_vulkan_triangle_imgui_h.c
-    examples/sdl3_vulkan_triangle_imgui_h_resize.c
+    # examples/sdl3_vulkan_triangle_imgui_h_resize.c
+    examples/sdl3_vulkan_triangle_font_h_resize.c
     # examples/sdl3_vulkan_triangle_h_resize.c
     # examples/sdl3_vulkan_triangle_h_sample.c
     # examples/sdl3_vulkan_triangle_spv_sample.c
@@ -159,6 +171,7 @@ target_include_directories(${APP_NAME} PUBLIC
     ${cimgui_SOURCE_DIR}/imgui              # imgui
     ${cimgui_SOURCE_DIR}/imgui/backends     # imgui/backends
     ${SDL3_SOURCE_DIR}/include              # SDL 3.2.22
+    ${stb_SOURCE_DIR}                       # font
 )
 
 # for c #define
