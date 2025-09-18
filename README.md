@@ -2,6 +2,10 @@
 
 # License: MIT
 
+# Status:
+- Work in progress build.
+- Adding some example to build for sample test.
+
 # Required:
 - cmake to build project.
 - vulkan sdk for compile shader.
@@ -18,6 +22,8 @@
 # Examples:
   Simple triangle and imgui files in examples folder.
 
+  Work on shader with two type of files. One is using the spv and other is header files.
+
 # shader:
   version 450
 
@@ -26,6 +32,32 @@
 %VULKAN_Path% -V --vn triangle_frag_spv assets/triangle.frag -o include/triangle_frag.h
 ```
   Convert to header file.
+
+# imgui:
+  There are couple of stage to handle imgui.
+```
+- First setup
+
+```
+```
+- loop
+    //...
+    - imgui...
+    - igNewFrame (Start draw imgui)
+    - create widgets
+    - igRender (End draw imgui)
+    //...
+```
+  This handle setup and design or write widgets.
+
+```
+   //...
+   - vulkan_begin_render
+   - render_imgui
+   - vulkan_end_render
+```
+  This handle vulkan render as well render imgui.
+
 
 # Credits:
 - Grok https://x.com/i/grok
