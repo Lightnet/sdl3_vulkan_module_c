@@ -1,4 +1,4 @@
-// vulkan imgui
+// vulkan
 // working
 
 /*
@@ -33,11 +33,6 @@ void main() {
 #include <stdlib.h>
 #include <string.h>
 
-#include "cimgui.h"          // From https://raw.githubusercontent.com/cimgui/cimgui/refs/heads/docking_inter/cimgui.h
-#include "cimgui_impl.h"     // From https://raw.githubusercontent.com/cimgui/cimgui/refs/heads/docking_inter/cimgui_impl.h
-
-#define igGetIO igGetIO_Nil
-
 #define WIDTH 800
 #define HEIGHT 600
 
@@ -62,8 +57,6 @@ struct VulkanContext {
     VkImage* swapchainImages;
     VkImageView* swapchainImageViews;
     VkFramebuffer* swapchainFramebuffers;
-
-    VkDescriptorPool imguiDescriptorPool; // Add for ImGui
 } vkCtx = {0};
 
 uint32_t find_memory_type(uint32_t typeFilter, VkMemoryPropertyFlags properties) {
@@ -262,80 +255,6 @@ void init_vulkan(SDL_Window* window) {
     }
 }
 
-void init_imgui(SDL_Window* window) {
-    // Initialize cimgui
-    igCreateContext(NULL);
-    ImGuiIO* io = igGetIO(); // Ensure igGetIO is defined in cimgui.h
-    io->ConfigFlags |= ImGuiConfigFlags_NavEnableKeyboard; // Enable keyboard controls
-    io->ConfigFlags |= ImGuiConfigFlags_DockingEnable;     // Enable docking
-
-    // Create descriptor pool for ImGui
-    VkDescriptorPoolSize pool_sizes[] = {
-        { VK_DESCRIPTOR_TYPE_SAMPLER, 1000 },
-        { VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1000 },
-        { VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE, 1000 },
-        { VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, 1000 },
-        { VK_DESCRIPTOR_TYPE_UNIFORM_TEXEL_BUFFER, 1000 },
-        { VK_DESCRIPTOR_TYPE_STORAGE_TEXEL_BUFFER, 1000 },
-        { VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 1000 },
-        { VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 1000 },
-        { VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC, 1000 },
-        { VK_DESCRIPTOR_TYPE_STORAGE_BUFFER_DYNAMIC, 1000 },
-        { VK_DESCRIPTOR_TYPE_INPUT_ATTACHMENT, 1000 }
-    };
-    VkDescriptorPoolCreateInfo pool_info = {VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO};
-    pool_info.maxSets = 1000;
-    pool_info.poolSizeCount = sizeof(pool_sizes) / sizeof(pool_sizes[0]);
-    pool_info.pPoolSizes = pool_sizes;
-
-    if (vkCreateDescriptorPool(vkCtx.device, &pool_info, NULL, &vkCtx.imguiDescriptorPool) != VK_SUCCESS) {
-        printf("Failed to create ImGui descriptor pool\n");
-        exit(1);
-    }
-
-    // Initialize ImGui Vulkan backend
-    ImGui_ImplVulkan_InitInfo init_info = {0};
-    init_info.Instance = vkCtx.instance;
-    init_info.PhysicalDevice = vkCtx.physicalDevice;
-    init_info.Device = vkCtx.device;
-    init_info.QueueFamily = 0; // Update this if your graphics queue family is different
-    init_info.Queue = vkCtx.graphicsQueue;
-    init_info.DescriptorPool = vkCtx.imguiDescriptorPool;
-    init_info.MinImageCount = 2;
-    init_info.ImageCount = vkCtx.imageCount;
-    init_info.RenderPass = vkCtx.renderPass;
-    init_info.MSAASamples = VK_SAMPLE_COUNT_1_BIT;
-
-    if (!ImGui_ImplVulkan_Init(&init_info)) {
-        printf("Failed to initialize ImGui Vulkan backend\n");
-        exit(1);
-    }
-
-    // Initialize ImGui SDL3 backend
-    if (!ImGui_ImplSDL3_InitForVulkan(window)) {
-        printf("Failed to initialize ImGui SDL3 backend\n");
-        exit(1);
-    }
-
-    // Upload fonts (handled by ImGui_ImplVulkan_Init in modern versions)
-    // If explicit font texture creation is needed, add it here
-    VkCommandBuffer commandBuffer = vkCtx.commandBuffer;
-    VkCommandBufferBeginInfo beginInfo = {VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO};
-    beginInfo.flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT;
-    vkBeginCommandBuffer(commandBuffer, &beginInfo);
-    // ImGui_ImplVulkan_CreateFontsTexture(commandBuffer); // remove from build being use behind scenes. found in change logs.
-    vkEndCommandBuffer(commandBuffer);
-
-    VkSubmitInfo submitInfo = {VK_STRUCTURE_TYPE_SUBMIT_INFO};
-    submitInfo.commandBufferCount = 1;
-    submitInfo.pCommandBuffers = &commandBuffer;
-    vkQueueSubmit(vkCtx.graphicsQueue, 1, &submitInfo, VK_NULL_HANDLE);
-    vkQueueWaitIdle(vkCtx.graphicsQueue);
-
-    // Destroy font upload resources if created separately
-    // ImGui_ImplVulkan_DestroyFontUploadObjects(); // remove from build being use behind scenes. found in change logs.
-}
-
 void create_triangle() {
     float vertices[] = {
         0.0f, -0.5f, 0.0f,  1.0f, 0.0f, 0.0f, // Top, red
@@ -506,15 +425,11 @@ void record_command_buffer(uint32_t imageIndex) {
     renderPassInfo.pClearValues = &clearColor;
 
     vkCmdBeginRenderPass(vkCtx.commandBuffer, &renderPassInfo, VK_SUBPASS_CONTENTS_INLINE);
-
-    // Draw triangle
     vkCmdBindPipeline(vkCtx.commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, vkCtx.graphicsPipeline);
+
     VkDeviceSize offsets[] = {0};
     vkCmdBindVertexBuffers(vkCtx.commandBuffer, 0, 1, &vkCtx.vertexBuffer, offsets);
     vkCmdDraw(vkCtx.commandBuffer, 3, 1, 0, 0);
-
-    // Draw ImGui
-    ImGui_ImplVulkan_RenderDrawData(igGetDrawData(), vkCtx.commandBuffer, VK_NULL_HANDLE);
 
     vkCmdEndRenderPass(vkCtx.commandBuffer);
     if (vkEndCommandBuffer(vkCtx.commandBuffer) != VK_SUCCESS) {
@@ -526,7 +441,7 @@ void record_command_buffer(uint32_t imageIndex) {
 int main(int argc, char* argv[]) {
     SDL_Init(SDL_INIT_VIDEO);
 
-    SDL_Window* window = SDL_CreateWindow("Vulkan SDL3 with ImGui", WIDTH, HEIGHT, SDL_WINDOW_VULKAN);
+    SDL_Window* window = SDL_CreateWindow("Vulkan SDL3", WIDTH, HEIGHT, SDL_WINDOW_VULKAN);
     if (!window) {
         printf("Window creation failed: %s\n", SDL_GetError());
         return 1;
@@ -535,33 +450,14 @@ int main(int argc, char* argv[]) {
     init_vulkan(window);
     create_triangle();
     create_pipeline();
-    init_imgui(window);
 
     bool running = true;
     SDL_Event event;
 
     while (running) {
-        // Start ImGui frame
-        ImGui_ImplVulkan_NewFrame();
-        ImGui_ImplSDL3_NewFrame();
-        igNewFrame();
-
-        // Create a simple ImGui window
-        igBegin("Hello, ImGui!", NULL, 0);
-        igText("This is a test window.");
-        if (igButton("Close", (ImVec2){0, 0})) {
-            running = false;
-        }
-        igEnd();
-
-        // Process SDL events for ImGui
         while (SDL_PollEvent(&event)) {
-            ImGui_ImplSDL3_ProcessEvent(&event);
             if (event.type == SDL_EVENT_QUIT) running = false;
         }
-
-        // Render ImGui
-        igRender();
 
         vkWaitForFences(vkCtx.device, 1, &vkCtx.inFlightFence, VK_TRUE, UINT64_MAX);
         vkResetFences(vkCtx.device, 1, &vkCtx.inFlightFence);
@@ -608,13 +504,6 @@ int main(int argc, char* argv[]) {
 
     vkDeviceWaitIdle(vkCtx.device);
 
-    // Cleanup ImGui
-    ImGui_ImplVulkan_Shutdown();
-    ImGui_ImplSDL3_Shutdown();
-    igDestroyContext(NULL);
-    vkDestroyDescriptorPool(vkCtx.device, vkCtx.imguiDescriptorPool, NULL);
-
-    // Existing cleanup
     vkDestroySemaphore(vkCtx.device, vkCtx.renderFinishedSemaphore, NULL);
     vkDestroySemaphore(vkCtx.device, vkCtx.imageAvailableSemaphore, NULL);
     vkDestroyFence(vkCtx.device, vkCtx.inFlightFence, NULL);
