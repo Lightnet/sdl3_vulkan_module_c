@@ -134,9 +134,11 @@ ${SRC_FILES}
     # src/triangle_module.c
     # src/main.c
     # examples/sdl3_vulkan_triangle_imgui_spv.c
-    examples/sdl3_vulkan_triangle_imgui_h.c
-    # examples/sdl3_vulkan_triangle_spv_sample.c
+    # examples/sdl3_vulkan_triangle_imgui_h.c
+    examples/sdl3_vulkan_triangle_imgui_h_resize.c
+    # examples/sdl3_vulkan_triangle_h_resize.c
     # examples/sdl3_vulkan_triangle_h_sample.c
+    # examples/sdl3_vulkan_triangle_spv_sample.c
     # examples/sdl3_vulkan_triangle_minimal.c
 )
 

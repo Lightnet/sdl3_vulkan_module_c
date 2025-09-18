@@ -24,6 +24,8 @@
 
   Work on shader with two type of files. One is using the spv and other is header files.
 
+  Added reize window.
+
 # shader:
   version 450
 
