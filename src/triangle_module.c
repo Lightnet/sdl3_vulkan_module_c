@@ -51,7 +51,6 @@ void render_triangle(VkCommandBuffer commandBuffer) {
     vkCmdDraw(commandBuffer, 3, 1, 0, 0);
 }
 
-
 void create_quad(void) {
     VulkanContext* vkCtx = get_vulkan_context();
 
@@ -126,7 +125,7 @@ void create_quad(void) {
     memcpy(indexData, indices, sizeof(indices));
     vkUnmapMemory(vkCtx->device, vkCtx->quadIndexMemory);
 
-    printf("Quad vertex and index buffers created successfully\n");
+    // printf("Quad vertex and index buffers created successfully\n");
 }
 
 void render_quad(VkCommandBuffer commandBuffer) {
@@ -145,7 +144,4 @@ void render_quad(VkCommandBuffer commandBuffer) {
 
     // printf("Quad draw command issued\n");
 }
-
-
-
 

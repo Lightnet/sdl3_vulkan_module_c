@@ -82,27 +82,12 @@ void cleanup_imgui(void) {
 }
 
 
-
-
-
 void render_imgui(uint32_t imageIndex) {
     VulkanContext* vkCtx = get_vulkan_context();
 
-    VkCommandBufferBeginInfo beginInfo = {VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO};
-    vkBeginCommandBuffer(vkCtx->commandBuffer, &beginInfo);
-    VkRenderPassBeginInfo renderPassInfo = {VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO};
-    renderPassInfo.renderPass = vkCtx->renderPass;
-    renderPassInfo.framebuffer = vkCtx->swapchainFramebuffers[imageIndex];
-    renderPassInfo.renderArea.offset = (VkOffset2D){0, 0};
-    renderPassInfo.renderArea.extent = (VkExtent2D){vkCtx->width, vkCtx->height};
-    VkClearValue clearColor = {{{0.5f, 0.5f, 0.5f, 1.0f}}};
-    renderPassInfo.clearValueCount = 1;
-    renderPassInfo.pClearValues = &clearColor;
-    vkCmdBeginRenderPass(vkCtx->commandBuffer, &renderPassInfo, VK_SUBPASS_CONTENTS_INLINE);
-
     // Render triangle and quad
-    render_triangle(vkCtx->commandBuffer);
-    render_quad(vkCtx->commandBuffer);
+    // render_triangle(vkCtx->commandBuffer);
+    // render_quad(vkCtx->commandBuffer);
 
     // Render ImGui
     ImGui_ImplVulkan_RenderDrawData(igGetDrawData(), vkCtx->commandBuffer, VK_NULL_HANDLE);
@@ -110,32 +95,53 @@ void render_imgui(uint32_t imageIndex) {
     vkCmdEndRenderPass(vkCtx->commandBuffer);
     vkEndCommandBuffer(vkCtx->commandBuffer);
 
-    VkSubmitInfo submitInfo = {VK_STRUCTURE_TYPE_SUBMIT_INFO};
-    VkSemaphore waitSemaphores[] = {vkCtx->imageAvailableSemaphore};
-    VkPipelineStageFlags waitStages[] = {VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT};
-    submitInfo.waitSemaphoreCount = 1;
-    submitInfo.pWaitSemaphores = waitSemaphores;
-    submitInfo.pWaitDstStageMask = waitStages;
-    submitInfo.commandBufferCount = 1;
-    submitInfo.pCommandBuffers = &vkCtx->commandBuffer;
-    VkSemaphore signalSemaphores[] = {vkCtx->renderFinishedSemaphore};
-    submitInfo.signalSemaphoreCount = 1;
-    submitInfo.pSignalSemaphores = signalSemaphores;
-
-    if (vkQueueSubmit(vkCtx->graphicsQueue, 1, &submitInfo, vkCtx->inFlightFence) != VK_SUCCESS) {
-        printf("Failed to submit draw command buffer\n");
-        exit(1);
-    }
-
-    VkPresentInfoKHR presentInfo = {VK_STRUCTURE_TYPE_PRESENT_INFO_KHR};
-    presentInfo.waitSemaphoreCount = 1;
-    presentInfo.pWaitSemaphores = signalSemaphores;
-    presentInfo.swapchainCount = 1;
-    presentInfo.pSwapchains = &vkCtx->swapchain;
-    presentInfo.pImageIndices = &imageIndex;
-
-    if (vkQueuePresentKHR(vkCtx->graphicsQueue, &presentInfo) != VK_SUCCESS) {
-        printf("Failed to present image\n");
-        exit(1);
-    }
 }
+
+
+// this ref which break up the code for render.
+// void render_imgui(uint32_t imageIndex) {
+//     VulkanContext* vkCtx = get_vulkan_context();
+//     VkCommandBufferBeginInfo beginInfo = {VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO};
+//     vkBeginCommandBuffer(vkCtx->commandBuffer, &beginInfo);
+//     VkRenderPassBeginInfo renderPassInfo = {VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO};
+//     renderPassInfo.renderPass = vkCtx->renderPass;
+//     renderPassInfo.framebuffer = vkCtx->swapchainFramebuffers[imageIndex];
+//     renderPassInfo.renderArea.offset = (VkOffset2D){0, 0};
+//     renderPassInfo.renderArea.extent = (VkExtent2D){vkCtx->width, vkCtx->height};
+//     VkClearValue clearColor = {{{0.5f, 0.5f, 0.5f, 1.0f}}};
+//     renderPassInfo.clearValueCount = 1;
+//     renderPassInfo.pClearValues = &clearColor;
+//     vkCmdBeginRenderPass(vkCtx->commandBuffer, &renderPassInfo, VK_SUBPASS_CONTENTS_INLINE);
+//     // Render triangle and quad
+//     render_triangle(vkCtx->commandBuffer);
+//     render_quad(vkCtx->commandBuffer);
+//     // Render ImGui
+//     ImGui_ImplVulkan_RenderDrawData(igGetDrawData(), vkCtx->commandBuffer, VK_NULL_HANDLE);
+//     vkCmdEndRenderPass(vkCtx->commandBuffer);
+//     vkEndCommandBuffer(vkCtx->commandBuffer);
+//     VkSubmitInfo submitInfo = {VK_STRUCTURE_TYPE_SUBMIT_INFO};
+//     VkSemaphore waitSemaphores[] = {vkCtx->imageAvailableSemaphore};
+//     VkPipelineStageFlags waitStages[] = {VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT};
+//     submitInfo.waitSemaphoreCount = 1;
+//     submitInfo.pWaitSemaphores = waitSemaphores;
+//     submitInfo.pWaitDstStageMask = waitStages;
+//     submitInfo.commandBufferCount = 1;
+//     submitInfo.pCommandBuffers = &vkCtx->commandBuffer;
+//     VkSemaphore signalSemaphores[] = {vkCtx->renderFinishedSemaphore};
+//     submitInfo.signalSemaphoreCount = 1;
+//     submitInfo.pSignalSemaphores = signalSemaphores;
+//     if (vkQueueSubmit(vkCtx->graphicsQueue, 1, &submitInfo, vkCtx->inFlightFence) != VK_SUCCESS) {
+//         printf("Failed to submit draw command buffer\n");
+//         exit(1);
+//     }
+//     VkPresentInfoKHR presentInfo = {VK_STRUCTURE_TYPE_PRESENT_INFO_KHR};
+//     presentInfo.waitSemaphoreCount = 1;
+//     presentInfo.pWaitSemaphores = signalSemaphores;
+//     presentInfo.swapchainCount = 1;
+//     presentInfo.pSwapchains = &vkCtx->swapchain;
+//     presentInfo.pImageIndices = &imageIndex;
+//     if (vkQueuePresentKHR(vkCtx->graphicsQueue, &presentInfo) != VK_SUCCESS) {
+//         printf("Failed to present image\n");
+//         exit(1);
+//     }
+// }

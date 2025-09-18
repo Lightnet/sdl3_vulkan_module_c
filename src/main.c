@@ -32,6 +32,8 @@ int main(int argc, char* argv[]) {
 
     bool running = true;
     SDL_Event event;
+    bool is_triangle = false;
+    bool is_quad = false;
 
     while (running) {
         ImGui_ImplVulkan_NewFrame();
@@ -42,6 +44,12 @@ int main(int argc, char* argv[]) {
         igText("This is a test window.");
         if (igButton("Close", (ImVec2){0, 0})) {
             running = false;
+        }
+        if (igButton("triangle", (ImVec2){0, 0})) {
+            is_triangle = !is_triangle;
+        }
+        if (igButton("quad", (ImVec2){0, 0})) {
+            is_quad = !is_quad;
         }
         igEnd();
 
@@ -63,7 +71,24 @@ int main(int argc, char* argv[]) {
         }
 
         vkResetCommandBuffer(vkCtx->commandBuffer, 0);
+
+        // begin render
+        vulkan_begin_render(imageIndex);
+        if(is_triangle){
+            // Render triangle 
+            render_triangle(vkCtx->commandBuffer);    
+        }
+
+        if(is_quad){
+            // Render quad
+            render_quad(vkCtx->commandBuffer);
+        }
+        
+        // imgui
         render_imgui(imageIndex);
+        // end render
+        vulkan_end_render(imageIndex);
+
     }
 
     vkDeviceWaitIdle(vkCtx->device);
