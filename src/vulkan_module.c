@@ -217,7 +217,6 @@ void init_vulkan(SDL_Window* window, uint32_t width, uint32_t height) {
     }
 }
 
-
 void create_pipeline(void) {
     VkShaderModuleCreateInfo vertShaderInfo = {VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO};
     vertShaderInfo.codeSize = sizeof(triangle_vert_spv);
@@ -308,7 +307,6 @@ void create_pipeline(void) {
     vkDestroyShaderModule(vkCtx.device, vertModule, NULL);
 }
 
-
 void record_command_buffer(uint32_t imageIndex) {
     VkCommandBufferBeginInfo beginInfo = {VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO};
     if (vkBeginCommandBuffer(vkCtx.commandBuffer, &beginInfo) != VK_SUCCESS) {
@@ -328,7 +326,7 @@ void record_command_buffer(uint32_t imageIndex) {
     vkCmdBeginRenderPass(vkCtx.commandBuffer, &renderPassInfo, VK_SUBPASS_CONTENTS_INLINE);
 }
 
-
+//vulkan render begin
 void vulkan_begin_render(uint32_t imageIndex){
     VkCommandBufferBeginInfo beginInfo = {VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO};
     vkBeginCommandBuffer(vkCtx.commandBuffer, &beginInfo);
@@ -343,6 +341,7 @@ void vulkan_begin_render(uint32_t imageIndex){
     vkCmdBeginRenderPass(vkCtx.commandBuffer, &renderPassInfo, VK_SUBPASS_CONTENTS_INLINE);
 }
 
+//vulkan render end
 void vulkan_end_render(uint32_t imageIndex){
     VkSubmitInfo submitInfo = {VK_STRUCTURE_TYPE_SUBMIT_INFO};
     VkSemaphore waitSemaphores[] = {vkCtx.imageAvailableSemaphore};
@@ -374,7 +373,7 @@ void vulkan_end_render(uint32_t imageIndex){
     }
 }
 
-
+// vulkan clean up
 void cleanup_vulkan(void) {
     vkDeviceWaitIdle(vkCtx.device);
     vkDestroySemaphore(vkCtx.device, vkCtx.renderFinishedSemaphore, NULL);

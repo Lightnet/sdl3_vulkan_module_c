@@ -81,7 +81,6 @@ void cleanup_imgui(void) {
     vkDestroyDescriptorPool(vkCtx->device, vkCtx->imguiDescriptorPool, NULL);
 }
 
-
 void render_imgui(uint32_t imageIndex) {
     VulkanContext* vkCtx = get_vulkan_context();
 
@@ -96,7 +95,6 @@ void render_imgui(uint32_t imageIndex) {
     vkEndCommandBuffer(vkCtx->commandBuffer);
 
 }
-
 
 // this ref which break up the code for render.
 // void render_imgui(uint32_t imageIndex) {

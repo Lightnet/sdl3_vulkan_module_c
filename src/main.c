@@ -38,8 +38,9 @@ int main(int argc, char* argv[]) {
     while (running) {
         ImGui_ImplVulkan_NewFrame();
         ImGui_ImplSDL3_NewFrame();
-        igNewFrame();
-
+        igNewFrame();// setup design imgui
+        // draw the imgui here
+        
         igBegin("Hello, ImGui!", NULL, 0);
         igText("This is a test window.");
         if (igButton("Close", (ImVec2){0, 0})) {
@@ -58,7 +59,7 @@ int main(int argc, char* argv[]) {
             if (event.type == SDL_EVENT_QUIT) running = false;
         }
 
-        igRender();
+        igRender(); // end setup imgui
 
         vkWaitForFences(vkCtx->device, 1, &vkCtx->inFlightFence, VK_TRUE, UINT64_MAX);
         vkResetFences(vkCtx->device, 1, &vkCtx->inFlightFence);
@@ -84,7 +85,7 @@ int main(int argc, char* argv[]) {
             render_quad(vkCtx->commandBuffer);
         }
         
-        // imgui
+        // render imgui
         render_imgui(imageIndex);
         // end render
         vulkan_end_render(imageIndex);

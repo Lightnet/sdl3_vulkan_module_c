@@ -1,5 +1,5 @@
-// vulkan imgui
-// working
+// vulkan
+// testing for minimal setup
 
 /*
 shader.frag
@@ -34,11 +34,6 @@ void main() {
 #include <stdlib.h>
 #include <string.h>
 
-#include "cimgui.h"          // From https://raw.githubusercontent.com/cimgui/cimgui/refs/heads/docking_inter/cimgui.h
-#include "cimgui_impl.h"     // From https://raw.githubusercontent.com/cimgui/cimgui/refs/heads/docking_inter/cimgui_impl.h
-
-#define igGetIO igGetIO_Nil
-
 #define WIDTH 800
 #define HEIGHT 600
 
@@ -51,7 +46,8 @@ struct VulkanContext {
     VkSwapchainKHR swapchain;
     VkRenderPass renderPass;
     VkPipelineLayout pipelineLayout;
-    VkPipeline graphicsPipeline;
+    VkPipeline graphicsPipeline; // Original pipeline
+    VkPipeline minimalPipeline;  // minimal pipeline
     VkCommandPool commandPool;
     VkCommandBuffer commandBuffer;
     VkBuffer vertexBuffer;
@@ -63,8 +59,6 @@ struct VulkanContext {
     VkImage* swapchainImages;
     VkImageView* swapchainImageViews;
     VkFramebuffer* swapchainFramebuffers;
-
-    VkDescriptorPool imguiDescriptorPool; // Add for ImGui
 } vkCtx = {0};
 
 uint32_t find_memory_type(uint32_t typeFilter, VkMemoryPropertyFlags properties) {
@@ -263,80 +257,6 @@ void init_vulkan(SDL_Window* window) {
     }
 }
 
-void init_imgui(SDL_Window* window) {
-    // Initialize cimgui
-    igCreateContext(NULL);
-    ImGuiIO* io = igGetIO(); // Ensure igGetIO is defined in cimgui.h
-    io->ConfigFlags |= ImGuiConfigFlags_NavEnableKeyboard; // Enable keyboard controls
-    io->ConfigFlags |= ImGuiConfigFlags_DockingEnable;     // Enable docking
-
-    // Create descriptor pool for ImGui
-    VkDescriptorPoolSize pool_sizes[] = {
-        { VK_DESCRIPTOR_TYPE_SAMPLER, 1000 },
-        { VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1000 },
-        { VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE, 1000 },
-        { VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, 1000 },
-        { VK_DESCRIPTOR_TYPE_UNIFORM_TEXEL_BUFFER, 1000 },
-        { VK_DESCRIPTOR_TYPE_STORAGE_TEXEL_BUFFER, 1000 },
-        { VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 1000 },
-        { VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 1000 },
-        { VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC, 1000 },
-        { VK_DESCRIPTOR_TYPE_STORAGE_BUFFER_DYNAMIC, 1000 },
-        { VK_DESCRIPTOR_TYPE_INPUT_ATTACHMENT, 1000 }
-    };
-    VkDescriptorPoolCreateInfo pool_info = {VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO};
-    pool_info.maxSets = 1000;
-    pool_info.poolSizeCount = sizeof(pool_sizes) / sizeof(pool_sizes[0]);
-    pool_info.pPoolSizes = pool_sizes;
-
-    if (vkCreateDescriptorPool(vkCtx.device, &pool_info, NULL, &vkCtx.imguiDescriptorPool) != VK_SUCCESS) {
-        printf("Failed to create ImGui descriptor pool\n");
-        exit(1);
-    }
-
-    // Initialize ImGui Vulkan backend
-    ImGui_ImplVulkan_InitInfo init_info = {0};
-    init_info.Instance = vkCtx.instance;
-    init_info.PhysicalDevice = vkCtx.physicalDevice;
-    init_info.Device = vkCtx.device;
-    init_info.QueueFamily = 0; // Update this if your graphics queue family is different
-    init_info.Queue = vkCtx.graphicsQueue;
-    init_info.DescriptorPool = vkCtx.imguiDescriptorPool;
-    init_info.MinImageCount = 2;
-    init_info.ImageCount = vkCtx.imageCount;
-    init_info.RenderPass = vkCtx.renderPass;
-    init_info.MSAASamples = VK_SAMPLE_COUNT_1_BIT;
-
-    if (!ImGui_ImplVulkan_Init(&init_info)) {
-        printf("Failed to initialize ImGui Vulkan backend\n");
-        exit(1);
-    }
-
-    // Initialize ImGui SDL3 backend
-    if (!ImGui_ImplSDL3_InitForVulkan(window)) {
-        printf("Failed to initialize ImGui SDL3 backend\n");
-        exit(1);
-    }
-
-    // Upload fonts (handled by ImGui_ImplVulkan_Init in modern versions)
-    // If explicit font texture creation is needed, add it here
-    VkCommandBuffer commandBuffer = vkCtx.commandBuffer;
-    VkCommandBufferBeginInfo beginInfo = {VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO};
-    beginInfo.flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT;
-    vkBeginCommandBuffer(commandBuffer, &beginInfo);
-    // ImGui_ImplVulkan_CreateFontsTexture(commandBuffer); // remove from build being use behind scenes. found in change logs.
-    vkEndCommandBuffer(commandBuffer);
-
-    VkSubmitInfo submitInfo = {VK_STRUCTURE_TYPE_SUBMIT_INFO};
-    submitInfo.commandBufferCount = 1;
-    submitInfo.pCommandBuffers = &commandBuffer;
-    vkQueueSubmit(vkCtx.graphicsQueue, 1, &submitInfo, VK_NULL_HANDLE);
-    vkQueueWaitIdle(vkCtx.graphicsQueue);
-
-    // Destroy font upload resources if created separately
-    // ImGui_ImplVulkan_DestroyFontUploadObjects(); // remove from build being use behind scenes. found in change logs.
-}
-
 void create_triangle() {
     float vertices[] = {
         0.0f, -0.5f, 0.0f,  1.0f, 0.0f, 0.0f, // Top, red
@@ -372,6 +292,126 @@ void create_triangle() {
     vkMapMemory(vkCtx.device, vkCtx.vertexMemory, 0, bufferInfo.size, 0, &data);
     memcpy(data, vertices, sizeof(vertices));
     vkUnmapMemory(vkCtx.device, vkCtx.vertexMemory);
+}
+
+void create_minimal_pipeline() {
+    // Load minimal vertex shader
+    FILE* vertFile = fopen("minimal_vert.spv", "rb");
+    if (!vertFile) {
+        printf("Failed to open minimal_vert.spv\n");
+        exit(1);
+    }
+    fseek(vertFile, 0, SEEK_END);
+    long vertSize = ftell(vertFile);
+    fseek(vertFile, 0, SEEK_SET);
+    char* vertShaderCode = malloc(vertSize);
+    fread(vertShaderCode, 1, vertSize, vertFile);
+    fclose(vertFile);
+
+    // Load minimal fragment shader
+    FILE* fragFile = fopen("minimal_frag.spv", "rb");
+    if (!fragFile) {
+        printf("Failed to open minimal_frag.spv\n");
+        exit(1);
+    }
+    fseek(fragFile, 0, SEEK_END);
+    long fragSize = ftell(fragFile);
+    fseek(fragFile, 0, SEEK_SET);
+    char* fragShaderCode = malloc(fragSize);
+    fread(fragShaderCode, 1, fragSize, fragFile);
+    fclose(fragFile);
+
+    // Create shader modules
+    VkShaderModuleCreateInfo vertShaderInfo = {VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO};
+    vertShaderInfo.codeSize = vertSize;
+    vertShaderInfo.pCode = (uint32_t*)vertShaderCode;
+    VkShaderModule vertModule;
+    if (vkCreateShaderModule(vkCtx.device, &vertShaderInfo, NULL, &vertModule) != VK_SUCCESS) {
+        printf("Failed to create minimal vertex shader module\n");
+        exit(1);
+    }
+
+    VkShaderModuleCreateInfo fragShaderInfo = {VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO};
+    fragShaderInfo.codeSize = fragSize;
+    fragShaderInfo.pCode = (uint32_t*)fragShaderCode;
+    VkShaderModule fragModule;
+    if (vkCreateShaderModule(vkCtx.device, &fragShaderInfo, NULL, &fragModule) != VK_SUCCESS) {
+        printf("Failed to create minimal fragment shader module\n");
+        exit(1);
+    }
+
+    // Shader stages
+    VkPipelineShaderStageCreateInfo shaderStages[] = {
+        {VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO, NULL, 0, VK_SHADER_STAGE_VERTEX_BIT, vertModule, "main", 0},
+        {VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO, NULL, 0, VK_SHADER_STAGE_FRAGMENT_BIT, fragModule, "main", 0}
+    };
+
+    // Vertex input (matches existing vertex buffer layout)
+    VkVertexInputBindingDescription bindingDesc = {0, 6 * sizeof(float), VK_VERTEX_INPUT_RATE_VERTEX};
+    VkVertexInputAttributeDescription attrDesc[] = {
+        {0, 0, VK_FORMAT_R32G32B32_SFLOAT, 0},                // Position
+        {1, 0, VK_FORMAT_R32G32B32_SFLOAT, 3 * sizeof(float)} // Color
+    };
+    VkPipelineVertexInputStateCreateInfo vertexInputInfo = {VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO};
+    vertexInputInfo.vertexBindingDescriptionCount = 1;
+    vertexInputInfo.pVertexBindingDescriptions = &bindingDesc;
+    vertexInputInfo.vertexAttributeDescriptionCount = 2;
+    vertexInputInfo.pVertexAttributeDescriptions = attrDesc;
+
+    // Input assembly
+    VkPipelineInputAssemblyStateCreateInfo inputAssembly = {VK_STRUCTURE_TYPE_PIPELINE_INPUT_ASSEMBLY_STATE_CREATE_INFO};
+    inputAssembly.topology = VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST;
+
+    // Viewport and scissor
+    VkViewport viewport = {0.0f, 0.0f, (float)WIDTH, (float)HEIGHT, 0.0f, 1.0f};
+    VkRect2D scissor = {{0, 0}, {WIDTH, HEIGHT}};
+    VkPipelineViewportStateCreateInfo viewportState = {VK_STRUCTURE_TYPE_PIPELINE_VIEWPORT_STATE_CREATE_INFO};
+    viewportState.viewportCount = 1;
+    viewportState.pViewports = &viewport;
+    viewportState.scissorCount = 1;
+    viewportState.pScissors = &scissor;
+
+    // Rasterization
+    VkPipelineRasterizationStateCreateInfo rasterizer = {VK_STRUCTURE_TYPE_PIPELINE_RASTERIZATION_STATE_CREATE_INFO};
+    rasterizer.lineWidth = 1.0f;
+
+    // Multisampling
+    VkPipelineMultisampleStateCreateInfo multisampling = {VK_STRUCTURE_TYPE_PIPELINE_MULTISAMPLE_STATE_CREATE_INFO};
+    multisampling.sampleShadingEnable = VK_FALSE;
+    multisampling.rasterizationSamples = VK_SAMPLE_COUNT_1_BIT;
+
+    // Color blending
+    VkPipelineColorBlendAttachmentState colorBlendAttachment = {};
+    colorBlendAttachment.colorWriteMask = VK_COLOR_COMPONENT_R_BIT | VK_COLOR_COMPONENT_G_BIT | VK_COLOR_COMPONENT_B_BIT | VK_COLOR_COMPONENT_A_BIT;
+    colorBlendAttachment.blendEnable = VK_FALSE;
+    VkPipelineColorBlendStateCreateInfo colorBlending = {VK_STRUCTURE_TYPE_PIPELINE_COLOR_BLEND_STATE_CREATE_INFO};
+    colorBlending.attachmentCount = 1;
+    colorBlending.pAttachments = &colorBlendAttachment;
+
+    // Create graphics pipeline
+    VkGraphicsPipelineCreateInfo pipelineInfo = {VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO};
+    pipelineInfo.stageCount = 2;
+    pipelineInfo.pStages = shaderStages;
+    pipelineInfo.pVertexInputState = &vertexInputInfo;
+    pipelineInfo.pInputAssemblyState = &inputAssembly;
+    pipelineInfo.pViewportState = &viewportState;
+    pipelineInfo.pRasterizationState = &rasterizer;
+    pipelineInfo.pMultisampleState = &multisampling;
+    pipelineInfo.pColorBlendState = &colorBlending;
+    pipelineInfo.layout = vkCtx.pipelineLayout; // Reuse existing pipeline layout
+    pipelineInfo.renderPass = vkCtx.renderPass; // Reuse existing render pass
+    pipelineInfo.subpass = 0;
+
+    if (vkCreateGraphicsPipelines(vkCtx.device, VK_NULL_HANDLE, 1, &pipelineInfo, NULL, &vkCtx.minimalPipeline) != VK_SUCCESS) {
+        printf("Failed to create minimal graphics pipeline\n");
+        exit(1);
+    }
+
+    // Clean up
+    vkDestroyShaderModule(vkCtx.device, fragModule, NULL);
+    vkDestroyShaderModule(vkCtx.device, vertModule, NULL);
+    free(vertShaderCode);
+    free(fragShaderCode);
 }
 
 void create_pipeline() {
@@ -507,15 +547,11 @@ void record_command_buffer(uint32_t imageIndex) {
     renderPassInfo.pClearValues = &clearColor;
 
     vkCmdBeginRenderPass(vkCtx.commandBuffer, &renderPassInfo, VK_SUBPASS_CONTENTS_INLINE);
-
-    // Draw triangle
     vkCmdBindPipeline(vkCtx.commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, vkCtx.graphicsPipeline);
+
     VkDeviceSize offsets[] = {0};
     vkCmdBindVertexBuffers(vkCtx.commandBuffer, 0, 1, &vkCtx.vertexBuffer, offsets);
     vkCmdDraw(vkCtx.commandBuffer, 3, 1, 0, 0);
-
-    // Draw ImGui
-    ImGui_ImplVulkan_RenderDrawData(igGetDrawData(), vkCtx.commandBuffer, VK_NULL_HANDLE);
 
     vkCmdEndRenderPass(vkCtx.commandBuffer);
     if (vkEndCommandBuffer(vkCtx.commandBuffer) != VK_SUCCESS) {
@@ -524,10 +560,38 @@ void record_command_buffer(uint32_t imageIndex) {
     }
 }
 
+void record_minimal_command_buffer(uint32_t imageIndex) {
+    VkCommandBufferBeginInfo beginInfo = {VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO};
+    if (vkBeginCommandBuffer(vkCtx.commandBuffer, &beginInfo) != VK_SUCCESS) {
+        printf("Failed to begin command buffer\n");
+        exit(1);
+    }
+
+    VkRenderPassBeginInfo renderPassInfo = {VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO};
+    renderPassInfo.renderPass = vkCtx.renderPass;
+    renderPassInfo.framebuffer = vkCtx.swapchainFramebuffers[imageIndex];
+    renderPassInfo.renderArea.offset = (VkOffset2D){0, 0};
+    renderPassInfo.renderArea.extent = (VkExtent2D){WIDTH, HEIGHT};
+    VkClearValue clearColor = {{{0.5f, 0.5f, 0.5f, 1.0f}}}; // Gray background
+    renderPassInfo.clearValueCount = 1;
+    renderPassInfo.pClearValues = &clearColor;
+
+    vkCmdBeginRenderPass(vkCtx.commandBuffer, &renderPassInfo, VK_SUBPASS_CONTENTS_INLINE);
+    vkCmdBindPipeline(vkCtx.commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, vkCtx.minimalPipeline); // Use minimal pipeline
+    vkCmdDraw(vkCtx.commandBuffer, 3, 1, 0, 0); // Draw call (no visible output due to shader)
+
+    vkCmdEndRenderPass(vkCtx.commandBuffer);
+    if (vkEndCommandBuffer(vkCtx.commandBuffer) != VK_SUCCESS) {
+        printf("Failed to end command buffer\n");
+        exit(1);
+    }
+}
+
+
 int main(int argc, char* argv[]) {
     SDL_Init(SDL_INIT_VIDEO);
 
-    SDL_Window* window = SDL_CreateWindow("Vulkan SDL3 with ImGui", WIDTH, HEIGHT, SDL_WINDOW_VULKAN);
+    SDL_Window* window = SDL_CreateWindow("Vulkan SDL3", WIDTH, HEIGHT, SDL_WINDOW_VULKAN);
     if (!window) {
         printf("Window creation failed: %s\n", SDL_GetError());
         return 1;
@@ -535,34 +599,24 @@ int main(int argc, char* argv[]) {
 
     init_vulkan(window);
     create_triangle();
-    create_pipeline();
-    init_imgui(window);
+    create_pipeline(); // Create original pipeline
+    create_minimal_pipeline(); // Use minimal pipeline instead of create_pipeline()
 
+    bool useMinimalPipeline = false; // Start with original pipeline
     bool running = true;
     SDL_Event event;
 
     while (running) {
-        // Start ImGui frame
-        ImGui_ImplVulkan_NewFrame();
-        ImGui_ImplSDL3_NewFrame();
-        igNewFrame();
-
-        // Create a simple ImGui window
-        igBegin("Hello, ImGui!", NULL, 0);
-        igText("This is a test window.");
-        if (igButton("Close", (ImVec2){0, 0})) {
-            running = false;
-        }
-        igEnd();
-
-        // Process SDL events for ImGui
         while (SDL_PollEvent(&event)) {
-            ImGui_ImplSDL3_ProcessEvent(&event);
-            if (event.type == SDL_EVENT_QUIT) running = false;
+            if (event.type == SDL_EVENT_QUIT) {
+                running = false;
+            } else if (event.type == SDL_EVENT_KEY_DOWN) {
+                if (event.key.key == SDLK_T) { // Toggle on 'T' key press
+                    useMinimalPipeline = !useMinimalPipeline;
+                    printf("Switched to %s pipeline\n", useMinimalPipeline ? "minimal" : "original");
+                }
+            }
         }
-
-        // Render ImGui
-        igRender();
 
         vkWaitForFences(vkCtx.device, 1, &vkCtx.inFlightFence, VK_TRUE, UINT64_MAX);
         vkResetFences(vkCtx.device, 1, &vkCtx.inFlightFence);
@@ -575,7 +629,13 @@ int main(int argc, char* argv[]) {
         }
 
         vkResetCommandBuffer(vkCtx.commandBuffer, 0);
-        record_command_buffer(imageIndex);
+        if (useMinimalPipeline) {
+            record_minimal_command_buffer(imageIndex); // Use minimal pipeline
+        } else {
+            record_command_buffer(imageIndex); // Use original pipeline
+        }
+        // record_command_buffer(imageIndex);
+        // record_minimal_command_buffer(imageIndex);
 
         VkSubmitInfo submitInfo = {VK_STRUCTURE_TYPE_SUBMIT_INFO};
         VkSemaphore waitSemaphores[] = {vkCtx.imageAvailableSemaphore};
@@ -609,18 +669,13 @@ int main(int argc, char* argv[]) {
 
     vkDeviceWaitIdle(vkCtx.device);
 
-    // Cleanup ImGui
-    ImGui_ImplVulkan_Shutdown();
-    ImGui_ImplSDL3_Shutdown();
-    igDestroyContext(NULL);
-    vkDestroyDescriptorPool(vkCtx.device, vkCtx.imguiDescriptorPool, NULL);
-
-    // Existing cleanup
+    // Clean up both pipelines
+    vkDestroyPipeline(vkCtx.device, vkCtx.graphicsPipeline, NULL);
+    vkDestroyPipeline(vkCtx.device, vkCtx.minimalPipeline, NULL);
     vkDestroySemaphore(vkCtx.device, vkCtx.renderFinishedSemaphore, NULL);
     vkDestroySemaphore(vkCtx.device, vkCtx.imageAvailableSemaphore, NULL);
     vkDestroyFence(vkCtx.device, vkCtx.inFlightFence, NULL);
     vkDestroyCommandPool(vkCtx.device, vkCtx.commandPool, NULL);
-    vkDestroyPipeline(vkCtx.device, vkCtx.graphicsPipeline, NULL);
     vkDestroyPipelineLayout(vkCtx.device, vkCtx.pipelineLayout, NULL);
     for (uint32_t i = 0; i < vkCtx.imageCount; i++) {
         vkDestroyFramebuffer(vkCtx.device, vkCtx.swapchainFramebuffers[i], NULL);
