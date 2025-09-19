@@ -31,6 +31,96 @@ VulkanContext* get_vulkan_context(void) {
     return &vkCtx;
 }
 
+void recreate_swapchain(SDL_Window* window) {
+    VulkanContext* vkCtx = get_vulkan_context();
+
+    // Wait for the device to be idle
+    vkDeviceWaitIdle(vkCtx->device);
+
+    // Clean up old swapchain resources
+    for (uint32_t i = 0; i < vkCtx->imageCount; i++) {
+        vkDestroyFramebuffer(vkCtx->device, vkCtx->swapchainFramebuffers[i], NULL);
+        vkDestroyImageView(vkCtx->device, vkCtx->swapchainImageViews[i], NULL);
+    }
+    free(vkCtx->swapchainFramebuffers);
+    free(vkCtx->swapchainImages);
+    free(vkCtx->swapchainImageViews);
+    vkDestroySwapchainKHR(vkCtx->device, vkCtx->swapchain, NULL);
+
+    // Get new window size
+    int width, height;
+    SDL_GetWindowSize(window, &width, &height);
+    vkCtx->width = (uint32_t)width;
+    vkCtx->height = (uint32_t)height;
+
+    // Recreate swapchain
+    VkSwapchainCreateInfoKHR swapchainInfo = {VK_STRUCTURE_TYPE_SWAPCHAIN_CREATE_INFO_KHR};
+    swapchainInfo.surface = vkCtx->surface;
+    swapchainInfo.minImageCount = 2;
+    swapchainInfo.imageFormat = VK_FORMAT_B8G8R8A8_UNORM;
+    swapchainInfo.imageColorSpace = VK_COLOR_SPACE_SRGB_NONLINEAR_KHR;
+    swapchainInfo.imageExtent.width = vkCtx->width;
+    swapchainInfo.imageExtent.height = vkCtx->height;
+    swapchainInfo.imageArrayLayers = 1;
+    swapchainInfo.imageUsage = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT;
+    swapchainInfo.preTransform = VK_SURFACE_TRANSFORM_IDENTITY_BIT_KHR;
+    swapchainInfo.compositeAlpha = VK_COMPOSITE_ALPHA_OPAQUE_BIT_KHR;
+    swapchainInfo.presentMode = VK_PRESENT_MODE_FIFO_KHR;
+    swapchainInfo.clipped = VK_TRUE;
+    swapchainInfo.oldSwapchain = VK_NULL_HANDLE;
+
+    if (vkCreateSwapchainKHR(vkCtx->device, &swapchainInfo, NULL, &vkCtx->swapchain) != VK_SUCCESS) {
+        printf("Failed to recreate swapchain\n");
+        exit(1);
+    }
+
+    // Get new swapchain images
+    vkGetSwapchainImagesKHR(vkCtx->device, vkCtx->swapchain, &vkCtx->imageCount, NULL);
+    vkCtx->swapchainImages = malloc(vkCtx->imageCount * sizeof(VkImage));
+    vkGetSwapchainImagesKHR(vkCtx->device, vkCtx->swapchain, &vkCtx->imageCount, vkCtx->swapchainImages);
+
+    // Create new image views
+    vkCtx->swapchainImageViews = malloc(vkCtx->imageCount * sizeof(VkImageView));
+    for (uint32_t i = 0; i < vkCtx->imageCount; i++) {
+        VkImageViewCreateInfo viewInfo = {VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO};
+        viewInfo.image = vkCtx->swapchainImages[i];
+        viewInfo.viewType = VK_IMAGE_VIEW_TYPE_2D;
+        viewInfo.format = VK_FORMAT_B8G8R8A8_UNORM;
+        viewInfo.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+        viewInfo.subresourceRange.baseMipLevel = 0;
+        viewInfo.subresourceRange.levelCount = 1;
+        viewInfo.subresourceRange.baseArrayLayer = 0;
+        viewInfo.subresourceRange.layerCount = 1;
+
+        if (vkCreateImageView(vkCtx->device, &viewInfo, NULL, &vkCtx->swapchainImageViews[i]) != VK_SUCCESS) {
+            printf("Failed to create image views\n");
+            exit(1);
+        }
+    }
+
+    // Create new framebuffers
+    vkCtx->swapchainFramebuffers = malloc(vkCtx->imageCount * sizeof(VkFramebuffer));
+    for (uint32_t i = 0; i < vkCtx->imageCount; i++) {
+        VkFramebufferCreateInfo framebufferInfo = {VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO};
+        framebufferInfo.renderPass = vkCtx->renderPass;
+        framebufferInfo.attachmentCount = 1;
+        framebufferInfo.pAttachments = &vkCtx->swapchainImageViews[i];
+        framebufferInfo.width = vkCtx->width;
+        framebufferInfo.height = vkCtx->height;
+        framebufferInfo.layers = 1;
+
+        if (vkCreateFramebuffer(vkCtx->device, &framebufferInfo, NULL, &vkCtx->swapchainFramebuffers[i]) != VK_SUCCESS) {
+            printf("Failed to create framebuffer\n");
+            exit(1);
+        }
+    }
+
+    // Update viewport and scissor in the pipeline (optional, if dynamic state is not used)
+    // If you want to update the pipeline, you may need to recreate it or use dynamic viewport/scissor
+}
+
+
+
 void init_vulkan(SDL_Window* window, uint32_t width, uint32_t height) {
     vkCtx.width = width;   // Set width
     vkCtx.height = height; // Set height

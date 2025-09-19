@@ -590,8 +590,6 @@ void init_font(const char* text, float font_size, float start_x, float start_y) 
     free(font_buffer);
 }
 
-
-
 void create_font_pipeline() {
     // Load font shaders (you need to compile font.vert and font.frag to SPIR-V, e.g., font_vert_spv and font_frag_spv)
     VkShaderModuleCreateInfo vertShaderInfo = {VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO};

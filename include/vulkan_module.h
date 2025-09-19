@@ -42,5 +42,6 @@ void cleanup_vulkan(void);
 uint32_t find_memory_type(VulkanContext* ctx, uint32_t typeFilter, VkMemoryPropertyFlags properties);
 
 // render handle
+void recreate_swapchain(SDL_Window* window);
 void vulkan_begin_render(uint32_t imageIndex);
 void vulkan_end_render(uint32_t imageIndex);

@@ -140,14 +140,16 @@ message(STATUS "cimgui_SOURCE_DIR: >> ${cimgui_SOURCE_DIR}")
 # Create executable
 add_executable(${APP_NAME}
 ${SRC_FILES}
-    # src/vulkan_module.c
-    # src/imgui_module.c
-    # src/triangle_module.c
-    # src/main.c
+    src/vulkan_module.c
+    src/imgui_module.c
+    src/triangle_module.c
+    src/main.c
+
+    # examples
     # examples/sdl3_vulkan_triangle_imgui_spv.c
     # examples/sdl3_vulkan_triangle_imgui_h.c
     # examples/sdl3_vulkan_triangle_imgui_h_resize.c
-    examples/sdl3_vulkan_triangle_font_h_resize.c
+    # examples/sdl3_vulkan_triangle_font_h_resize.c
     # examples/sdl3_vulkan_triangle_h_resize.c
     # examples/sdl3_vulkan_triangle_h_sample.c
     # examples/sdl3_vulkan_triangle_spv_sample.c
