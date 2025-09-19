@@ -29,6 +29,7 @@ void init_imgui(SDL_Window* window) {
         { VK_DESCRIPTOR_TYPE_INPUT_ATTACHMENT, 1000 }
     };
     VkDescriptorPoolCreateInfo pool_info = {VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO};
+    pool_info.flags = VK_DESCRIPTOR_POOL_CREATE_FREE_DESCRIPTOR_SET_BIT; // Add this flag
     pool_info.maxSets = 1000;
     pool_info.poolSizeCount = sizeof(pool_sizes) / sizeof(pool_sizes[0]);
     pool_info.pPoolSizes = pool_sizes;
@@ -59,8 +60,21 @@ void init_imgui(SDL_Window* window) {
         printf("Failed to initialize ImGui SDL3 backend\n");
         exit(1);
     }
+    // ImGui fonts does not need to create imgui 1.92.
+    
+    // Create a temporary command buffer for font uploading
+    VkCommandBufferAllocateInfo allocInfo = {VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO};
+    allocInfo.commandPool = vkCtx->commandPool;
+    allocInfo.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
+    allocInfo.commandBufferCount = 1;
 
-    VkCommandBuffer commandBuffer = vkCtx->commandBuffer;
+    VkCommandBuffer commandBuffer;
+    if (vkAllocateCommandBuffers(vkCtx->device, &allocInfo, &commandBuffer) != VK_SUCCESS) {
+        printf("Failed to allocate command buffer for ImGui initialization\n");
+        exit(1);
+    }
+
+    // VkCommandBuffer commandBuffer = vkCtx->commandBuffer;
     VkCommandBufferBeginInfo beginInfo = {VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO};
     beginInfo.flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT;
     vkBeginCommandBuffer(commandBuffer, &beginInfo);
@@ -71,6 +85,8 @@ void init_imgui(SDL_Window* window) {
     submitInfo.pCommandBuffers = &commandBuffer;
     vkQueueSubmit(vkCtx->graphicsQueue, 1, &submitInfo, VK_NULL_HANDLE);
     vkQueueWaitIdle(vkCtx->graphicsQueue);
+
+    // ImGui_ImplVulkan_DestroyFontsTexture imgui 1.92 is remove
 }
 
 void cleanup_imgui(void) {
@@ -88,11 +104,15 @@ void render_imgui(uint32_t imageIndex) {
     // render_triangle(vkCtx->commandBuffer);
     // render_quad(vkCtx->commandBuffer);
 
-    // Render ImGui
-    ImGui_ImplVulkan_RenderDrawData(igGetDrawData(), vkCtx->commandBuffer, VK_NULL_HANDLE);
+    ImGui_ImplVulkan_RenderDrawData(igGetDrawData(), vkCtx->commandBuffers[imageIndex], VK_NULL_HANDLE);
 
-    vkCmdEndRenderPass(vkCtx->commandBuffer);
-    vkEndCommandBuffer(vkCtx->commandBuffer);
+
+
+    // Render ImGui
+    // ImGui_ImplVulkan_RenderDrawData(igGetDrawData(), vkCtx->commandBuffer, VK_NULL_HANDLE);
+
+    // vkCmdEndRenderPass(vkCtx->commandBuffer);
+    // vkEndCommandBuffer(vkCtx->commandBuffer);
 
 }
 

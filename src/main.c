@@ -1,3 +1,4 @@
+// main.c
 #include <SDL3/SDL.h>
 #include <SDL3/SDL_vulkan.h>
 #include <vulkan/vulkan.h>
@@ -16,103 +17,104 @@
 
 
 int main(int argc, char* argv[]) {
-    SDL_Init(SDL_INIT_VIDEO);
-
-    SDL_Window* window = SDL_CreateWindow("Vulkan SDL3 with ImGui", WIDTH, HEIGHT, SDL_WINDOW_VULKAN | SDL_WINDOW_RESIZABLE); // Add resizable flag
-    if (!window) {
-        printf("Window creation failed: %s\n", SDL_GetError());
+    if (SDL_Init(SDL_INIT_VIDEO | SDL_INIT_EVENTS) < 0) {
+        printf("SDL initialization failed: %s\n", SDL_GetError());
         return 1;
     }
 
-    VulkanContext* vkCtx = get_vulkan_context();
+    SDL_Window* window = SDL_CreateWindow("Vulkan SDL3 with ImGui",
+                                          WIDTH, HEIGHT,
+                                          SDL_WINDOW_VULKAN | SDL_WINDOW_RESIZABLE);
+    if (!window) {
+        printf("Window creation failed: %s\n", SDL_GetError());
+        SDL_Quit();
+        return 1;
+    }
+
     init_vulkan(window, WIDTH, HEIGHT);
     create_triangle();
     create_quad();
-    create_pipeline();
     init_imgui(window);
 
+    bool showTriangle = true;
+    bool showQuad = true;
     bool running = true;
-    SDL_Event event;
-    bool is_triangle = false;
-    bool is_quad = false;
-    bool needsResize = false; // Add needsResize flag
+    uint32_t currentFrame = 0;
 
     while (running) {
-        // Handle events
+        SDL_Event event;
         while (SDL_PollEvent(&event)) {
             ImGui_ImplSDL3_ProcessEvent(&event);
             if (event.type == SDL_EVENT_QUIT) {
                 running = false;
-            } else if (event.type == SDL_EVENT_WINDOW_RESIZED) {
-                needsResize = true; // Set resize flag
+            }
+            if (event.type == SDL_EVENT_WINDOW_RESIZED || event.type == SDL_EVENT_WINDOW_MINIMIZED) {
+                recreate_swapchain(window);
             }
         }
 
-        // Handle resize if needed
-        if (needsResize) {
-            recreate_swapchain(window);
-            ImGuiIO* io = igGetIO();
-            if (io) {
-                io->DisplaySize = (ImVec2){(float)vkCtx->width, (float)vkCtx->height};
-                ImGui_ImplVulkan_SetMinImageCount(vkCtx->imageCount);
-            }
-            needsResize = false;
-        }
-
+        // Start ImGui frame
         ImGui_ImplVulkan_NewFrame();
         ImGui_ImplSDL3_NewFrame();
         igNewFrame();
 
-        // Draw ImGui
-        igBegin("Hello, ImGui!", NULL, 0);
-        igText("This is a test window.");
-        if (igButton("Close", (ImVec2){0, 0})) {
-            running = false;
-        }
-        if (igButton("triangle", (ImVec2){0, 0})) {
-            is_triangle = !is_triangle;
-        }
-        if (igButton("quad", (ImVec2){0, 0})) {
-            is_quad = !is_quad;
-        }
+        // ImGui interface
+        igBegin("Controls", NULL, 0);
+        igCheckbox("Show Triangle", &showTriangle);
+        igCheckbox("Show Quad", &showQuad);
         igEnd();
-
         igRender();
 
-        vkWaitForFences(vkCtx->device, 1, &vkCtx->inFlightFence, VK_TRUE, UINT64_MAX);
-        vkResetFences(vkCtx->device, 1, &vkCtx->inFlightFence);
+        VulkanContext* vkCtx = get_vulkan_context();
 
+        // Acquire next image
         uint32_t imageIndex;
-        VkResult result = vkAcquireNextImageKHR(vkCtx->device, vkCtx->swapchain, UINT64_MAX, vkCtx->imageAvailableSemaphore, VK_NULL_HANDLE, &imageIndex);
+        VkResult result = vkAcquireNextImageKHR(vkCtx->device, vkCtx->swapchain, UINT64_MAX,
+                                                vkCtx->imageAvailableSemaphores[currentFrame], VK_NULL_HANDLE, &imageIndex);
         if (result == VK_ERROR_OUT_OF_DATE_KHR || result == VK_SUBOPTIMAL_KHR) {
-            needsResize = true; // Trigger resize on swapchain out-of-date
+            recreate_swapchain(window);
             continue;
         } else if (result != VK_SUCCESS) {
-            printf("Failed to acquire next image: %d\n", result);
+            printf("Failed to acquire swapchain image: %d\n", result);
             exit(1);
         }
 
-        vkResetCommandBuffer(vkCtx->commandBuffer, 0);
+        // Wait for the fence associated with this imageIndex
+        vkWaitForFences(vkCtx->device, 1, &vkCtx->inFlightFences[imageIndex], VK_TRUE, UINT64_MAX);
+        vkResetFences(vkCtx->device, 1, &vkCtx->inFlightFences[imageIndex]);
 
-        // Begin render
+        // Reset command buffer
+        if (vkResetCommandBuffer(vkCtx->commandBuffers[imageIndex], 0) != VK_SUCCESS) {
+            printf("Failed to reset command buffer\n");
+            exit(1);
+        }
+
+        // Record command buffer
         vulkan_begin_render(imageIndex);
-        if (is_triangle) {
-            render_triangle(vkCtx->commandBuffer);
+        if (showTriangle) {
+            render_triangle(vkCtx->commandBuffers[imageIndex]);
         }
-        if (is_quad) {
-            render_quad(vkCtx->commandBuffer);
+        if (showQuad) {
+            render_quad(vkCtx->commandBuffers[imageIndex]);
         }
-        
-        // Render ImGui
         render_imgui(imageIndex);
-        // End render
-        vulkan_end_render(imageIndex);
+        vulkan_end_render(imageIndex, currentFrame);
+
+        // Increment frame index
+        currentFrame = (currentFrame + 1) % vkCtx->imageCount;
     }
 
+    // Cleanup
+    VulkanContext* vkCtx = get_vulkan_context();
     vkDeviceWaitIdle(vkCtx->device);
-    cleanup_imgui();
+    ImGui_ImplVulkan_Shutdown();
+    ImGui_ImplSDL3_Shutdown();
+    igDestroyContext(NULL);
     cleanup_vulkan();
     SDL_DestroyWindow(window);
     SDL_Quit();
     return 0;
 }
+
+
+

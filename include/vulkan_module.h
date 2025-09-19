@@ -6,6 +6,7 @@
 
 typedef struct {
     VkInstance instance;
+    VkDebugUtilsMessengerEXT debugMessenger;
     VkPhysicalDevice physicalDevice;
     VkDevice device;
     VkQueue graphicsQueue;
@@ -15,16 +16,17 @@ typedef struct {
     VkPipelineLayout pipelineLayout;
     VkPipeline graphicsPipeline;
     VkCommandPool commandPool;
-    VkCommandBuffer commandBuffer;
-    VkBuffer vertexBuffer;     // For triangle
+    // VkCommandBuffer commandBuffer;
+    VkCommandBuffer* commandBuffers; // Array of command buffers
+    VkBuffer vertexBuffer;
     VkDeviceMemory vertexMemory;
-    VkBuffer quadBuffer;       // For quad vertices
+    VkBuffer quadBuffer;
     VkDeviceMemory quadMemory;
-    VkBuffer quadIndexBuffer;  // For quad indices
+    VkBuffer quadIndexBuffer;
     VkDeviceMemory quadIndexMemory;
-    VkSemaphore imageAvailableSemaphore;
-    VkSemaphore renderFinishedSemaphore;
-    VkFence inFlightFence;
+    VkSemaphore* imageAvailableSemaphores;
+    VkSemaphore* renderFinishedSemaphores;
+    VkFence* inFlightFences;
     uint32_t imageCount;
     VkImage* swapchainImages;
     VkImageView* swapchainImageViews;
@@ -44,4 +46,4 @@ uint32_t find_memory_type(VulkanContext* ctx, uint32_t typeFilter, VkMemoryPrope
 // render handle
 void recreate_swapchain(SDL_Window* window);
 void vulkan_begin_render(uint32_t imageIndex);
-void vulkan_end_render(uint32_t imageIndex);
+void vulkan_end_render(uint32_t imageIndex, uint32_t semaphoreIndex);
