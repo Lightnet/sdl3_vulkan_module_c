@@ -14,6 +14,13 @@
 # Infromation:
   Sample project for SDL 3.2, vulkan and cimgui tests in module to keep it simple.
 
+# Features:
+- cimgui ( c lang) > imgui ( c++ language)
+- triangle
+- quad
+- resize window
+- Dynamic Viewport and Scissor
+
 # Sample:
   Create window and button to close application. The button triangle and quad to toggle visible render. 
   

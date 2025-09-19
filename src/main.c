@@ -43,7 +43,7 @@ int main(int argc, char* argv[]) {
             ImGui_ImplSDL3_ProcessEvent(&event);
             if (event.type == SDL_EVENT_QUIT) {
                 running = false;
-            } else if (event.type == SDL_EVENT_WINDOW_RESIZED || event.type == SDL_EVENT_WINDOW_RESIZED) {
+            } else if (event.type == SDL_EVENT_WINDOW_RESIZED) {
                 needsResize = true; // Set resize flag
             }
         }
@@ -51,7 +51,6 @@ int main(int argc, char* argv[]) {
         // Handle resize if needed
         if (needsResize) {
             recreate_swapchain(window);
-            // Update ImGui Vulkan backend with new swapchain details
             ImGuiIO* io = igGetIO();
             if (io) {
                 io->DisplaySize = (ImVec2){(float)vkCtx->width, (float)vkCtx->height};

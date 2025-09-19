@@ -307,12 +307,16 @@ void init_vulkan(SDL_Window* window, uint32_t width, uint32_t height) {
     }
 }
 
+
 void create_pipeline(void) {
+    VulkanContext* vkCtx = get_vulkan_context();
+
+    // Shader modules (unchanged)
     VkShaderModuleCreateInfo vertShaderInfo = {VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO};
     vertShaderInfo.codeSize = sizeof(triangle_vert_spv);
     vertShaderInfo.pCode = triangle_vert_spv;
     VkShaderModule vertModule;
-    if (vkCreateShaderModule(vkCtx.device, &vertShaderInfo, NULL, &vertModule) != VK_SUCCESS) {
+    if (vkCreateShaderModule(vkCtx->device, &vertShaderInfo, NULL, &vertModule) != VK_SUCCESS) {
         printf("Failed to create vertex shader module\n");
         exit(1);
     }
@@ -321,7 +325,7 @@ void create_pipeline(void) {
     fragShaderInfo.codeSize = sizeof(triangle_frag_spv);
     fragShaderInfo.pCode = triangle_frag_spv;
     VkShaderModule fragModule;
-    if (vkCreateShaderModule(vkCtx.device, &fragShaderInfo, NULL, &fragModule) != VK_SUCCESS) {
+    if (vkCreateShaderModule(vkCtx->device, &fragShaderInfo, NULL, &fragModule) != VK_SUCCESS) {
         printf("Failed to create fragment shader module\n");
         exit(1);
     }
@@ -331,6 +335,7 @@ void create_pipeline(void) {
         {VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO, NULL, 0, VK_SHADER_STAGE_FRAGMENT_BIT, fragModule, "main", 0}
     };
 
+    // Vertex input (unchanged)
     VkVertexInputBindingDescription bindingDesc = {0, 6 * sizeof(float), VK_VERTEX_INPUT_RATE_VERTEX};
     VkVertexInputAttributeDescription attrDesc[] = {
         {0, 0, VK_FORMAT_R32G32B32_SFLOAT, 0},
@@ -343,24 +348,31 @@ void create_pipeline(void) {
     vertexInputInfo.vertexAttributeDescriptionCount = 2;
     vertexInputInfo.pVertexAttributeDescriptions = attrDesc;
 
+    // Input assembly (unchanged)
     VkPipelineInputAssemblyStateCreateInfo inputAssembly = {VK_STRUCTURE_TYPE_PIPELINE_INPUT_ASSEMBLY_STATE_CREATE_INFO};
     inputAssembly.topology = VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST;
 
-    VkViewport viewport = {0.0f, 0.0f, (float)vkCtx.width, (float)vkCtx.height, 0.0f, 1.0f};
-    VkRect2D scissor = {{0, 0}, {vkCtx.width, vkCtx.height}};
-    VkPipelineViewportStateCreateInfo viewportState = {VK_STRUCTURE_TYPE_PIPELINE_VIEWPORT_STATE_CREATE_INFO};
-    viewportState.viewportCount = 1;
-    viewportState.pViewports = &viewport;
-    viewportState.scissorCount = 1;
-    viewportState.pScissors = &scissor;
+    // Dynamic state
+    VkDynamicState dynamicStates[] = {VK_DYNAMIC_STATE_VIEWPORT, VK_DYNAMIC_STATE_SCISSOR};
+    VkPipelineDynamicStateCreateInfo dynamicState = {VK_STRUCTURE_TYPE_PIPELINE_DYNAMIC_STATE_CREATE_INFO};
+    dynamicState.dynamicStateCount = 2;
+    dynamicState.pDynamicStates = dynamicStates;
 
+    // Viewport state (no static viewport/scissor)
+    VkPipelineViewportStateCreateInfo viewportState = {VK_STRUCTURE_TYPE_PIPELINE_VIEWPORT_STATE_CREATE_INFO};
+    viewportState.viewportCount = 1; // Must be 1 even if dynamic
+    viewportState.scissorCount = 1;  // Must be 1 even if dynamic
+
+    // Rasterization (unchanged)
     VkPipelineRasterizationStateCreateInfo rasterizer = {VK_STRUCTURE_TYPE_PIPELINE_RASTERIZATION_STATE_CREATE_INFO};
     rasterizer.lineWidth = 1.0f;
 
+    // Multisampling (unchanged)
     VkPipelineMultisampleStateCreateInfo multisampling = {VK_STRUCTURE_TYPE_PIPELINE_MULTISAMPLE_STATE_CREATE_INFO};
     multisampling.sampleShadingEnable = VK_FALSE;
     multisampling.rasterizationSamples = VK_SAMPLE_COUNT_1_BIT;
 
+    // Color blending (unchanged)
     VkPipelineColorBlendAttachmentState colorBlendAttachment = {};
     colorBlendAttachment.colorWriteMask = VK_COLOR_COMPONENT_R_BIT | VK_COLOR_COMPONENT_G_BIT | VK_COLOR_COMPONENT_B_BIT | VK_COLOR_COMPONENT_A_BIT;
     colorBlendAttachment.blendEnable = VK_FALSE;
@@ -369,12 +381,14 @@ void create_pipeline(void) {
     colorBlending.attachmentCount = 1;
     colorBlending.pAttachments = &colorBlendAttachment;
 
+    // Pipeline layout (unchanged)
     VkPipelineLayoutCreateInfo pipelineLayoutInfo = {VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO};
-    if (vkCreatePipelineLayout(vkCtx.device, &pipelineLayoutInfo, NULL, &vkCtx.pipelineLayout) != VK_SUCCESS) {
+    if (vkCreatePipelineLayout(vkCtx->device, &pipelineLayoutInfo, NULL, &vkCtx->pipelineLayout) != VK_SUCCESS) {
         printf("Failed to create pipeline layout\n");
         exit(1);
     }
 
+    // Graphics pipeline
     VkGraphicsPipelineCreateInfo pipelineInfo = {VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO};
     pipelineInfo.stageCount = 2;
     pipelineInfo.pStages = shaderStages;
@@ -384,18 +398,21 @@ void create_pipeline(void) {
     pipelineInfo.pRasterizationState = &rasterizer;
     pipelineInfo.pMultisampleState = &multisampling;
     pipelineInfo.pColorBlendState = &colorBlending;
-    pipelineInfo.layout = vkCtx.pipelineLayout;
-    pipelineInfo.renderPass = vkCtx.renderPass;
+    pipelineInfo.layout = vkCtx->pipelineLayout;
+    pipelineInfo.renderPass = vkCtx->renderPass;
     pipelineInfo.subpass = 0;
+    pipelineInfo.pDynamicState = &dynamicState; // Add dynamic state
 
-    if (vkCreateGraphicsPipelines(vkCtx.device, VK_NULL_HANDLE, 1, &pipelineInfo, NULL, &vkCtx.graphicsPipeline) != VK_SUCCESS) {
+    if (vkCreateGraphicsPipelines(vkCtx->device, VK_NULL_HANDLE, 1, &pipelineInfo, NULL, &vkCtx->graphicsPipeline) != VK_SUCCESS) {
         printf("Failed to create graphics pipeline\n");
         exit(1);
     }
 
-    vkDestroyShaderModule(vkCtx.device, fragModule, NULL);
-    vkDestroyShaderModule(vkCtx.device, vertModule, NULL);
+    // Clean up shader modules
+    vkDestroyShaderModule(vkCtx->device, fragModule, NULL);
+    vkDestroyShaderModule(vkCtx->device, vertModule, NULL);
 }
+
 
 void record_command_buffer(uint32_t imageIndex) {
     VkCommandBufferBeginInfo beginInfo = {VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO};
@@ -417,18 +434,29 @@ void record_command_buffer(uint32_t imageIndex) {
 }
 
 //vulkan render begin
-void vulkan_begin_render(uint32_t imageIndex){
+void vulkan_begin_render(uint32_t imageIndex) {
+    VulkanContext* vkCtx = get_vulkan_context();
     VkCommandBufferBeginInfo beginInfo = {VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO};
-    vkBeginCommandBuffer(vkCtx.commandBuffer, &beginInfo);
+    if (vkBeginCommandBuffer(vkCtx->commandBuffer, &beginInfo) != VK_SUCCESS) {
+        printf("Failed to begin command buffer\n");
+        exit(1);
+    }
+
     VkRenderPassBeginInfo renderPassInfo = {VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO};
-    renderPassInfo.renderPass = vkCtx.renderPass;
-    renderPassInfo.framebuffer = vkCtx.swapchainFramebuffers[imageIndex];
+    renderPassInfo.renderPass = vkCtx->renderPass;
+    renderPassInfo.framebuffer = vkCtx->swapchainFramebuffers[imageIndex];
     renderPassInfo.renderArea.offset = (VkOffset2D){0, 0};
-    renderPassInfo.renderArea.extent = (VkExtent2D){vkCtx.width, vkCtx.height};
+    renderPassInfo.renderArea.extent = (VkExtent2D){vkCtx->width, vkCtx->height};
     VkClearValue clearColor = {{{0.5f, 0.5f, 0.5f, 1.0f}}};
     renderPassInfo.clearValueCount = 1;
     renderPassInfo.pClearValues = &clearColor;
-    vkCmdBeginRenderPass(vkCtx.commandBuffer, &renderPassInfo, VK_SUBPASS_CONTENTS_INLINE);
+    vkCmdBeginRenderPass(vkCtx->commandBuffer, &renderPassInfo, VK_SUBPASS_CONTENTS_INLINE);
+
+    // Set dynamic viewport and scissor
+    VkViewport viewport = {0.0f, 0.0f, (float)vkCtx->width, (float)vkCtx->height, 0.0f, 1.0f};
+    VkRect2D scissor = {{0, 0}, {vkCtx->width, vkCtx->height}};
+    vkCmdSetViewport(vkCtx->commandBuffer, 0, 1, &viewport);
+    vkCmdSetScissor(vkCtx->commandBuffer, 0, 1, &scissor);
 }
 
 //vulkan render end
