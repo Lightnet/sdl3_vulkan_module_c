@@ -31,6 +31,16 @@ VulkanContext* get_vulkan_context(void) {
     return &vkCtx;
 }
 
+static VKAPI_ATTR VkBool32 VKAPI_CALL vulkan_debug_callback_function(
+    VkDebugUtilsMessageSeverityFlagBitsEXT messageSeverity,
+    VkDebugUtilsMessageTypeFlagsEXT messageType,
+    const VkDebugUtilsMessengerCallbackDataEXT* pCallbackData,
+    void* pUserData) {
+    SDL_Log("Validation layer: %s", pCallbackData->pMessage);
+    return VK_FALSE;
+}
+
+
 void recreate_swapchain(SDL_Window* window) {
     VulkanContext* vkCtx = get_vulkan_context();
 
@@ -124,6 +134,7 @@ void recreate_swapchain(SDL_Window* window) {
 void init_vulkan(SDL_Window* window, uint32_t width, uint32_t height) {
     vkCtx.width = width;   // Set width
     vkCtx.height = height; // Set height
+    bool is_debug = false;
 
     VkApplicationInfo appInfo = {VK_STRUCTURE_TYPE_APPLICATION_INFO};
     appInfo.pApplicationName = "Vulkan SDL3";
@@ -132,17 +143,81 @@ void init_vulkan(SDL_Window* window, uint32_t width, uint32_t height) {
     appInfo.engineVersion = VK_MAKE_VERSION(1, 0, 0);
     appInfo.apiVersion = VK_API_VERSION_1_3;
 
-    const char* extensions[] = {VK_KHR_SURFACE_EXTENSION_NAME, "VK_KHR_win32_surface"};
+
+    // Get the count of required Vulkan instance extensions
+    Uint32 extensionCount = 0;
+    const char *const *extensionNames = SDL_Vulkan_GetInstanceExtensions(&extensionCount);
+    if (!extensionNames) {
+        printf("Failed to get Vulkan extensionNames\n");
+        exit(1); 
+    }
+
+    // Log all extensions
+    SDL_Log("Found %u Vulkan instance extensions:", extensionCount);
+    for (Uint32 i = 0; i < extensionCount; i++) {
+        SDL_Log("  %u: %s", i + 1, extensionNames[i]);
+    }
+
+
+    // Prepare for debug layer if enabled
+    const char *debugExtension = "VK_EXT_debug_utils";
+    const char *validationLayer = "VK_LAYER_KHRONOS_validation";
+    VkDebugUtilsMessengerCreateInfoEXT debugMessengerCreateInfo = {VK_STRUCTURE_TYPE_DEBUG_UTILS_MESSENGER_CREATE_INFO_EXT};
+
+    // Dynamically allocate extension names array to include debug extension if needed
+    Uint32 totalExtensionCount = extensionCount;
+    if (is_debug) {
+        totalExtensionCount++; // Add space for debug extension
+    }
+    const char **allExtensionNames = malloc(totalExtensionCount * sizeof(const char *));
+    if (!allExtensionNames) {
+        printf("Failed to allocate memory for extension names\n");
+        exit(1);
+    }
+
+    // Copy SDL extensions and add debug extension if enabled
+    for (Uint32 i = 0; i < extensionCount; i++) {
+        allExtensionNames[i] = extensionNames[i];
+    }
+    if (is_debug) {
+        allExtensionNames[extensionCount] = debugExtension;
+        SDL_Log("Added debug extension: %s", debugExtension);
+    }
+
+    // Setup Vulkan instance create info
     VkInstanceCreateInfo createInfo = {VK_STRUCTURE_TYPE_INSTANCE_CREATE_INFO};
     createInfo.pApplicationInfo = &appInfo;
-    createInfo.enabledExtensionCount = 2;
-    createInfo.ppEnabledExtensionNames = extensions;
-    createInfo.enabledLayerCount = 0;
+    createInfo.enabledExtensionCount = totalExtensionCount;
+    createInfo.ppEnabledExtensionNames = allExtensionNames;
+
+    // Add validation layer if debug is enabled
+    if (is_debug) {
+        createInfo.enabledLayerCount = 1;
+        createInfo.ppEnabledLayerNames = &validationLayer;
+
+        // Setup debug messenger create info
+        debugMessengerCreateInfo.messageSeverity = VK_DEBUG_UTILS_MESSAGE_SEVERITY_VERBOSE_BIT_EXT |
+                                                VK_DEBUG_UTILS_MESSAGE_SEVERITY_WARNING_BIT_EXT |
+                                                VK_DEBUG_UTILS_MESSAGE_SEVERITY_ERROR_BIT_EXT;
+        debugMessengerCreateInfo.messageType = VK_DEBUG_UTILS_MESSAGE_TYPE_GENERAL_BIT_EXT |
+                                            VK_DEBUG_UTILS_MESSAGE_TYPE_VALIDATION_BIT_EXT |
+                                            VK_DEBUG_UTILS_MESSAGE_TYPE_PERFORMANCE_BIT_EXT;
+        debugMessengerCreateInfo.pfnUserCallback = vulkan_debug_callback_function; // Define this callback
+        debugMessengerCreateInfo.pUserData = NULL;
+        createInfo.pNext = &debugMessengerCreateInfo;
+    } else {
+        createInfo.enabledLayerCount = 0;
+        createInfo.ppEnabledLayerNames = NULL;
+    }
+
 
     if (vkCreateInstance(&createInfo, NULL, &vkCtx.instance) != VK_SUCCESS) {
         printf("Failed to create Vulkan instance\n");
         exit(1);
     }
+
+    // Clean up
+    free(allExtensionNames);
 
     if (!SDL_Vulkan_CreateSurface(window, vkCtx.instance, NULL, &vkCtx.surface)) {
         printf("Failed to create Vulkan surface: %s\n", SDL_GetError());
@@ -307,7 +382,6 @@ void init_vulkan(SDL_Window* window, uint32_t width, uint32_t height) {
     }
 }
 
-
 void create_pipeline(void) {
     VulkanContext* vkCtx = get_vulkan_context();
 
@@ -412,7 +486,6 @@ void create_pipeline(void) {
     vkDestroyShaderModule(vkCtx->device, fragModule, NULL);
     vkDestroyShaderModule(vkCtx->device, vertModule, NULL);
 }
-
 
 void record_command_buffer(uint32_t imageIndex) {
     VkCommandBufferBeginInfo beginInfo = {VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO};
