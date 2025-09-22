@@ -21,7 +21,9 @@
 - resize window
 - Dynamic Viewport and Scissor
 
-# Sample:
+# Samples:
+  Note this is just testing files. Rework for making sure there no error on vulkan layer.
+  
   Create window and button to close application. The button triangle and quad to toggle visible render. 
   
   There are quad and triangle colors render screen.
